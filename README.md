@@ -270,4 +270,10 @@ deleted, in case you want to reference or restore the original single-floor-only
   the internet on first run (three.js/Drei examples and Google Fonts respectively); a fully offline
   environment will fall back to plain system fonts and the 3D view needs its one-time asset fetch.
 * **Floor plan (2D) panned or zoomed out of view** - double-click the canvas (or the ⌂ button) to re-fit it.
-# Wayout
+---------
+
+git add . "file name"                                                          
+git commit -m "update"
+git push               
+
+----
