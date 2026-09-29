@@ -1,0 +1,50 @@
+{
+  "model_name": "HistGradientBoostingRegressor (monotonic constraints)",
+  "n_samples": 1032,
+  "n_train": 825,
+  "n_test": 207,
+  "target": "clearance_time (s)",
+  "target_mean_s": 94.97,
+  "target_std_s": 42.38,
+  "holdout": {
+    "mae_s": 7.777,
+    "rmse_s": 15.536,
+    "r2": 0.8978,
+    "mape_pct": 7.0
+  },
+  "cross_val_5fold": {
+    "mae_s": 7.072,
+    "rmse_s": 11.795,
+    "r2": 0.9226,
+    "mape_pct": 7.04
+  },
+  "benchmark_random_forest_holdout": {
+    "mae_s": 8.341,
+    "rmse_s": 16.435,
+    "r2": 0.8856,
+    "mape_pct": 7.34
+  },
+  "features": [
+    "occupancy",
+    "num_exits",
+    "total_exit_width",
+    "corridor_width",
+    "floor_area",
+    "mean_path_dist",
+    "max_path_dist",
+    "room_count",
+    "intersection_count",
+    "agent_speed",
+    "narrowest_passage",
+    "occ_per_corridor_m",
+    "occ_per_exit_m",
+    "flow_limited_time_s",
+    "walk_time_max_s",
+    "n_floors",
+    "floor_height"
+  ],
+  "trained_at": "2026-09-29 11:51:37",
+  "sklearn_version": "1.9.1",
+  "python": "3.13.4",
+  "training_data": "Local simulator runs on procedurally varied building configurations"
+}
