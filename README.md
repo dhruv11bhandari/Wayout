@@ -5,8 +5,8 @@
 Wayout builds a digital evacuation model of a building - now multi-floor, with a 3D architectural
 visualization as the primary experience - watches a crowd evacuate it, shows *where* and *why* people
 get stuck, and lets you change the design (corridor width, exits, stairs, occupancy, hazards) and get an
-answer two ways: a **fast AI prediction** (single floor) or a **real re-simulation** (multi-floor), always
-validated by the actual pedestrian simulation underneath.
+answer two ways: a **fast AI prediction** (single floor) or a **real re-simulation**. (multi-floor),always
+validated by the actual pedestran simulation underneath.
 
 > **Prototype status.** Everything in this repository runs **locally on the CPU**. There is no GPU, CUDA,
 > NVIDIA Nemotron, Nebius or any cloud service and no API key. Both are real, clean integration points in
