@@ -8,6 +8,7 @@ get stuck, and lets you change the design (corridor width, exits, stairs, occupa
 answer two ways: a **fast AI prediction** (single floor) or a **real re-simulation**. (multi-floor),always
 validated by the actual pedestran simulation underneath.
 
+
 > **Prototype status.** Everything in this repository runs **locally on the CPU**. There is no GPU, CUDA,
 > NVIDIA Nemotron, Nebius or any cloud service and no API key. Both are real, clean integration points in
 > the code (`CudaSimulationEngine`, `NemotronCopilotProvider`) gated by environment variables that default
