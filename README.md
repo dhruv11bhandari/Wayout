@@ -276,6 +276,7 @@ deleted, in case you want to reference or restore the original single-floor-only
 
 
 ---------
+to run 
 
 git add . "file name"                                                          
 git commit -m "update"
