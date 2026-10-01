@@ -1,0 +1,732 @@
+/* ==========================================================================
+   Simulator.enhancements.css
+   Additive styles for the improved Simulator page. Your existing classes
+   (.header, .viewport, .busy, .segmented, ...) keep working untouched; this
+   file only adds new `wy-*` pieces and a few light polish rules.
+   Load it AFTER your main stylesheet.
+   ========================================================================== */
+
+.simulator {
+  /* Semantic colours match the ones already used in the page logic. */
+  --wy-good: #4ade80;
+  --wy-warn: #eab308;
+  --wy-bad: #ef4444;
+  /* Point these at your own theme tokens if they exist. */
+  --wy-accent: var(--accent, #7aa2ff);
+  --wy-text: var(--text, #f4f4f5);
+  --wy-dim: var(--dim, rgba(244, 244, 245, 0.56));
+  --wy-line: rgba(255, 255, 255, 0.09);
+  --wy-line-strong: rgba(255, 255, 255, 0.18);
+  --wy-glass: rgba(10, 10, 12, 0.66);
+  /* Swap this ramp to match your Heatmap3D palette. */
+  --wy-heat-ramp: linear-gradient(90deg, #1f9d55 0%, #4ade80 20%, #eab308 62%, #ef4444 100%);
+  /* If your header is position: fixed, set this to its height. */
+  --wy-sticky-top: 0px;
+}
+
+/* ---- Utilities --------------------------------------------------------- */
+
+.simulator .wy-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.simulator .wy-skip {
+  position: absolute;
+  left: 12px;
+  top: -48px;
+  z-index: 300;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--wy-text);
+  color: #050505;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.simulator .wy-skip:focus-visible {
+  top: 12px;
+}
+
+.simulator :is(button, a, input, select, textarea, [role='button']):focus-visible {
+  outline: 2px solid var(--wy-accent);
+  outline-offset: 2px;
+}
+
+.simulator kbd {
+  font: 600 10.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--wy-line-strong);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--wy-text);
+}
+
+.simulator .wy-keys {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.simulator .wy-btn-ic {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.simulator .wy-pulse {
+  animation: wy-pulse 2.4s ease-in-out infinite;
+}
+@keyframes wy-pulse {
+  50% { opacity: 0.45; }
+}
+
+/* ---- Viewport chrome --------------------------------------------------- */
+
+.simulator .viewport {
+  position: relative;
+}
+.simulator .viewport:fullscreen {
+  background: #000;
+}
+
+.simulator .viewport-hud-top,
+.simulator .viewport-hud-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+.simulator .viewport-hud-top { align-items: flex-start; }
+.simulator .viewport-hud-bottom { align-items: flex-end; flex-wrap: wrap; }
+.simulator .viewport-hud-top > *,
+.simulator .viewport-hud-bottom > * {
+  pointer-events: auto;
+}
+
+.simulator .viewport-hud-top .segmented,
+.simulator .viewport-hud-top .cam-presets,
+.simulator .viewport-hud-bottom .heat-modes {
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+
+.simulator .wy-hud-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.simulator .wy-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--wy-line);
+  background: var(--wy-glass);
+  color: var(--wy-text);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.15s, background 0.15s, transform 0.12s;
+}
+.simulator .wy-icon-btn:hover {
+  border-color: var(--wy-line-strong);
+  background: rgba(255, 255, 255, 0.09);
+}
+.simulator .wy-icon-btn:active {
+  transform: scale(0.94);
+}
+
+.simulator .wy-selected-exit {
+  position: absolute;
+  top: 64px;
+  left: 16px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--wy-line-strong);
+  background: var(--wy-glass);
+  backdrop-filter: blur(12px);
+  font-size: 12.5px;
+  color: var(--wy-text);
+}
+.simulator .wy-chip-x {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--wy-text);
+  cursor: pointer;
+}
+.simulator .wy-chip-x:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* ---- Floor rail -------------------------------------------------------- */
+
+.simulator .wy-rail {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid var(--wy-line);
+  background: var(--wy-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.simulator .wy-rail button {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 2px;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--wy-dim);
+  line-height: 1;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.15s, background 0.15s, transform 0.12s;
+}
+.simulator .wy-rail button:hover {
+  color: var(--wy-text);
+  background: rgba(255, 255, 255, 0.07);
+}
+.simulator .wy-rail button:active {
+  transform: scale(0.95);
+}
+.simulator .wy-rail button.on {
+  color: #050505;
+  background: var(--wy-text);
+}
+.simulator .wy-rail-num {
+  font-size: 15px;
+  font-weight: 700;
+}
+.simulator .wy-rail-sub {
+  font-size: 9.5px;
+  opacity: 0.65;
+}
+.simulator .wy-rail-sep {
+  height: 1px;
+  margin: 2px 6px;
+  background: var(--wy-line);
+}
+.simulator .wy-rail .wy-rail-iso {
+  min-height: 32px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+/* ---- Heat legend ------------------------------------------------------- */
+
+.simulator .wy-legend {
+  min-width: 210px;
+  padding: 10px 14px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--wy-line);
+  background: var(--wy-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 11px;
+  color: var(--wy-dim);
+}
+.simulator .wy-legend-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.simulator .wy-legend-head b {
+  color: var(--wy-text);
+  font-weight: 600;
+}
+.simulator .wy-legend-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--wy-heat-ramp);
+}
+.simulator .wy-legend-scale {
+  position: relative;
+  height: 18px;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.simulator .wy-legend-scale span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+.simulator .wy-legend-scale span:first-child { transform: none; }
+.simulator .wy-legend-scale span:last-child { transform: translateX(-100%); }
+
+/* ---- Overlay states ---------------------------------------------------- */
+
+.simulator .busy.wy-ready { background: rgba(0, 0, 0, 0.55); }
+.simulator .busy.wy-error { background: rgba(0, 0, 0, 0.7); }
+
+.simulator .wy-ready-box,
+.simulator .wy-error-box {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.simulator .wy-ready-box { max-width: 480px; }
+
+.simulator .wy-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.simulator .wy-chip-row.left { justify-content: flex-start; margin-top: 12px; }
+
+.simulator .wy-pill {
+  padding: 5px 11px;
+  border-radius: 99px;
+  border: 1px solid var(--wy-line);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  color: var(--wy-dim);
+}
+.simulator .wy-pill b {
+  margin-right: 5px;
+  font-weight: 600;
+  color: var(--wy-text);
+  font-variant-numeric: tabular-nums;
+}
+.simulator .wy-pill.warn {
+  color: var(--wy-warn);
+  border-color: color-mix(in srgb, var(--wy-warn) 45%, transparent);
+}
+.simulator .wy-pill.warn b { color: inherit; }
+
+.simulator .wy-estimate {
+  min-height: 18px;
+  font-size: 13px;
+  color: var(--wy-dim);
+}
+.simulator .wy-estimate b {
+  color: var(--wy-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.simulator .wy-run-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 12px 18px 12px 20px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--wy-text);
+  color: #050505;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.simulator .wy-run-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 34px -10px rgba(255, 255, 255, 0.4);
+}
+.simulator .wy-run-cta:active { transform: translateY(0) scale(0.98); }
+.simulator .wy-run-cta kbd {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.22);
+  color: #050505;
+}
+
+.simulator .wy-elapsed {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--wy-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Results: sticky nav ----------------------------------------------- */
+
+.simulator .wy-section-nav {
+  position: sticky;
+  top: var(--wy-sticky-top);
+  z-index: 20;
+  display: flex;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 28px;
+  padding: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: 99px;
+  border: 1px solid var(--wy-line);
+  background: rgba(8, 8, 10, 0.72);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+}
+.simulator .wy-section-nav::-webkit-scrollbar { display: none; }
+.simulator .wy-section-nav button {
+  padding: 8px 15px;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--wy-dim);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.simulator .wy-section-nav button:hover { color: var(--wy-text); }
+.simulator .wy-section-nav button.on {
+  color: #050505;
+  background: var(--wy-text);
+}
+
+.simulator .scroll-sections .scroll-section {
+  scroll-margin-top: calc(var(--wy-sticky-top) + 76px);
+}
+
+/* ---- Results: verdict (the one orchestrated reveal) -------------------- */
+
+.simulator .wy-verdict {
+  --tone: var(--wy-good);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px 20px;
+  margin-bottom: 40px;
+  padding: 22px 24px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, transparent);
+  background:
+    radial-gradient(120% 160% at 0% 0%, color-mix(in srgb, var(--tone) 15%, transparent), transparent 62%),
+    rgba(255, 255, 255, 0.02);
+  animation: wy-reveal 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.simulator .wy-verdict.warn { --tone: var(--wy-warn); }
+.simulator .wy-verdict.bad { --tone: var(--wy-bad); }
+
+@keyframes wy-reveal {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.simulator .wy-verdict-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: var(--tone);
+  border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent);
+  background: color-mix(in srgb, var(--tone) 13%, transparent);
+}
+.simulator .wy-verdict-body { flex: 1 1 280px; min-width: 0; }
+.simulator .wy-verdict-title {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+.simulator .wy-verdict-sub {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--wy-dim);
+}
+.simulator .wy-verdict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ---- Results: scenario comparison -------------------------------------- */
+
+.simulator .wy-compare { display: grid; gap: 12px; }
+
+.simulator .wy-note {
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px dashed var(--wy-line-strong);
+  font-size: 13px;
+  color: var(--wy-dim);
+}
+
+.simulator .wy-cmp-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 120px;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--wy-line);
+  background: rgba(255, 255, 255, 0.02);
+}
+.simulator .wy-cmp-label { font-size: 13px; color: var(--wy-dim); }
+.simulator .wy-cmp-bars { display: grid; gap: 9px; }
+.simulator .wy-cmp-line {
+  display: grid;
+  grid-template-columns: 64px 1fr 76px;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+}
+.simulator .wy-cmp-tag { font-size: 12px; color: var(--wy-dim); }
+.simulator .wy-cmp-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.simulator .wy-cmp-fill {
+  height: 100%;
+  border-radius: inherit;
+  transform-origin: left;
+  animation: wy-grow 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transition: width 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes wy-grow { from { transform: scaleX(0); } }
+.simulator .wy-cmp-fill.base { background: rgba(255, 255, 255, 0.32); }
+.simulator .wy-cmp-fill.cur { background: var(--wy-text); }
+.simulator .wy-cmp-fill.cur.better { background: var(--wy-good); }
+.simulator .wy-cmp-fill.cur.worse { background: var(--wy-bad); }
+.simulator .wy-cmp-val {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.simulator .wy-cmp-text { display: grid; gap: 8px; font-size: 13px; }
+.simulator .wy-cmp-text > div {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 12px;
+}
+
+.simulator .wy-cmp-delta {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 11px;
+  border-radius: 99px;
+  border: 1px solid var(--wy-line);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--wy-dim);
+  font-variant-numeric: tabular-nums;
+}
+.simulator .wy-cmp-delta.better {
+  color: var(--wy-good);
+  border-color: color-mix(in srgb, var(--wy-good) 40%, transparent);
+  background: color-mix(in srgb, var(--wy-good) 10%, transparent);
+}
+.simulator .wy-cmp-delta.worse {
+  color: var(--wy-bad);
+  border-color: color-mix(in srgb, var(--wy-bad) 40%, transparent);
+  background: color-mix(in srgb, var(--wy-bad) 10%, transparent);
+}
+.simulator .wy-cmp-delta.info {
+  color: var(--wy-warn);
+  border-color: color-mix(in srgb, var(--wy-warn) 40%, transparent);
+  background: color-mix(in srgb, var(--wy-warn) 10%, transparent);
+}
+
+/* ---- Copilot suggestions ----------------------------------------------- */
+
+.simulator .wy-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.simulator .wy-suggest-chip {
+  padding: 8px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--wy-line-strong);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--wy-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.12s;
+}
+.simulator .wy-suggest-chip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-1px);
+}
+.simulator .wy-suggest-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- Toasts ------------------------------------------------------------ */
+
+.simulator .wy-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 100;
+  display: grid;
+  gap: 10px;
+  width: min(480px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.simulator .wy-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--wy-line-strong);
+  background: rgba(14, 14, 16, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.7);
+  font-size: 13.5px;
+  animation: wy-toast-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.simulator .wy-toast > svg { flex: none; color: var(--wy-dim); }
+.simulator .wy-toast.good > svg { color: var(--wy-good); }
+.simulator .wy-toast.bad > svg { color: var(--wy-bad); }
+.simulator .wy-toast > span { flex: 1; }
+.simulator .wy-toast-action {
+  padding: 6px 11px;
+  border: 1px solid var(--wy-line-strong);
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--wy-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.simulator .wy-toast-action:hover { background: rgba(255, 255, 255, 0.14); }
+.simulator .wy-toast-x {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wy-dim);
+  cursor: pointer;
+}
+.simulator .wy-toast-x:hover { color: var(--wy-text); background: rgba(255, 255, 255, 0.08); }
+@keyframes wy-toast-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ---- Shortcuts dialog -------------------------------------------------- */
+
+.simulator .wy-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: wy-fade 0.2s both;
+}
+.simulator .wy-modal {
+  width: min(460px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 20px 22px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--wy-line-strong);
+  background: #0c0c0e;
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.85);
+  animation: wy-pop 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.simulator .wy-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.simulator .wy-modal-head h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.simulator .wy-shortcuts { margin: 0; padding: 0; list-style: none; }
+.simulator .wy-shortcuts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-top: 1px solid var(--wy-line);
+  font-size: 13.5px;
+  color: var(--wy-dim);
+}
+.simulator .wy-shortcuts li:first-child { border-top: 0; }
+@keyframes wy-fade { from { opacity: 0; } }
+@keyframes wy-pop { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+
+/* ---- Responsive -------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .simulator .wy-legend { display: none; }
+}
+
+@media (max-width: 760px) {
+  .simulator .wy-hide-sm { display: none; }
+  .simulator .wy-cmp-row { grid-template-columns: 1fr; gap: 12px; }
+  .simulator .wy-cmp-delta { justify-self: start; }
+  .simulator .wy-verdict-actions { margin-left: 0; }
+  .simulator .wy-rail {
+    top: auto;
+    bottom: 64px;
+    right: 12px;
+    transform: none;
+    flex-direction: row;
+  }
+  .simulator .wy-rail-sep { width: 1px; height: auto; margin: 6px 2px; }
+}
+
+/* ---- Reduced motion ---------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .simulator .wy-verdict,
+  .simulator .wy-toast,
+  .simulator .wy-modal,
+  .simulator .wy-modal-backdrop,
+  .simulator .wy-cmp-fill,
+  .simulator .wy-pulse {
+    animation: none !important;
+  }
+  .simulator * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
