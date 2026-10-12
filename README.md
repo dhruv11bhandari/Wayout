@@ -8,6 +8,7 @@ visualization as the primary experience - watches a crowd evacuate it, shows *\*
 
 get stuck, and lets you change the design (corridor width, exits, stairs, occupancy, hazards) and get an
 
+
 answer two ways: a **\*\*fast AI prediction\*\*** (single floor) or a **\*\*real re-simulation\*\***. (multi-floor),always
 
 validated by the actual pedestran simulation underneath.
