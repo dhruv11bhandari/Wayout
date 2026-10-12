@@ -22,6 +22,7 @@ export function useMultiFloorSim() {
   paramsRef.current = params;
 
   const [building, setBuilding] = useState<MultiFloorBuilding | null>(null);
+  const [buildingOverride, setBuildingOverride] = useState<MultiFloorBuilding | null>(null);
   const [buildingLoading, setBuildingLoading] = useState(false);
 
   // Instant AI estimate of whole-building clearance time, re-fetched (debounced) as
@@ -42,6 +43,7 @@ export function useMultiFloorSim() {
   const playback = usePlayback();
 
   useEffect(() => {
+    if (buildingOverride) return;
     let alive = true;
     const check = async () => {
       try {
@@ -69,7 +71,7 @@ export function useMultiFloorSim() {
         .finally(() => { if (alive) setBuildingLoading(false); });
     }, 260);
     return () => { alive = false; clearTimeout(t); };
-  }, [params]);
+  }, [params, buildingOverride]);
 
   useEffect(() => {
     let alive = true;
@@ -148,9 +150,34 @@ export function useMultiFloorSim() {
     }
   }, [applyResult]);
 
+  const runImported = useCallback(async (designId: string, occupancy: number, agentSpeed: number, seed: number) => {
+    setStatus('running');
+    setError(null);
+    setRecommendations([]);
+    try {
+      const r = await api.simulateDesign(designId, Math.max(10, Math.min(400, Math.round(occupancy))), agentSpeed, seed);
+      applyResult(r);
+      setBaseline(null);
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not simulate this uploaded design.');
+      setStatus('error');
+    }
+  }, [applyResult]);
+
   const pinBaseline = useCallback(() => {
     if (result) setBaseline({ params: paramsRef.current, result });
   }, [result]);
+
+  const clearRun = useCallback(() => {
+    setResult(null);
+    setTrajectories([]);
+    setStatus('idle');
+    setError(null);
+    setBaseline(null);
+    setRecommendations([]);
+    setRecStatus('idle');
+    playback.clear();
+  }, [playback]);
 
   const fetchRecommendations = useCallback(async () => {
     setRecStatus('running');
@@ -181,8 +208,9 @@ export function useMultiFloorSim() {
 
   return {
     health, config, params, updateParams, setFloorCount, setTotalOccupancy, toggleBlockedExit, toggleBlockedStair,
-    building, buildingLoading, prediction, predictionLoading, result, trajectories, status, error, run,
-    baseline, pinBaseline, recommendations, recStatus, fetchRecommendations, applyAndRun,
+    setBuildingOverride,
+    building: buildingOverride ?? building, buildingLoading, prediction, predictionLoading, result, trajectories, status, error, run,
+    baseline, pinBaseline, clearRun, recommendations, recStatus, fetchRecommendations, applyAndRun, runImported,
     selectedFloor, setSelectedFloor, playback,
   };
 }

@@ -167,6 +167,7 @@ export interface RuntimeConfig {
   cuda_active: boolean;
   nemotron_enabled: boolean;
   nemotron_active: boolean;
+  nemotron_design_available?: boolean;
 }
 
 export interface Prediction {

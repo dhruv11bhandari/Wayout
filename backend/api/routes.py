@@ -6,7 +6,7 @@ import time
 from dataclasses import replace
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 
 import services
@@ -19,6 +19,15 @@ from simulation.navigation import get_environment
 
 router = APIRouter()
 VERSION = "0.2.0"
+_uploaded_designs: Dict[str, Any] = {}
+
+
+class ImportedSimulationIn(BaseModel):
+    design_id: str
+    occupancy: int = Field(140, ge=10, le=400)
+    agent_speed: float = Field(1.3, ge=0.5, le=2.0)
+    seed: int = 42
+    record: bool = True
 
 
 class ParamsIn(BaseModel):
@@ -149,6 +158,57 @@ def health() -> Dict[str, Any]:
 def config() -> Dict[str, Any]:
     """What's actually running right now - never claims GPU/Nemotron are active unless they are."""
     return services.runtime_info()
+
+
+@router.post("/design/parse")
+async def parse_design(file: UploadFile = File(...)):
+    """Extract a one-floor raster/PDF plan with the configured vision model."""
+    from uuid import uuid4
+    from building.imported_design import building_to_payload, parse_uploaded_plan
+
+    raw = await file.read(20 * 1024 * 1024 + 1)
+    try:
+        plan = parse_uploaded_plan(file.filename or "floor-plan", file.content_type or "", raw)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    design_id = uuid4().hex
+    _uploaded_designs[design_id] = plan.building
+    return {"design_id": design_id, "source_name": file.filename or "floor plan",
+            "uncertainties": plan.uncertainties,
+            "building": {"n_floors": 1, "floor_height": 3.5, "stair_landing_points": {},
+                         "floors": [building_to_payload(plan.building)],
+                         "params": {"n_floors": 1, "occupancy": [140], "floor_height": 3.5}}}
+
+
+@router.post("/design/simulate")
+def simulate_design(req: ImportedSimulationIn):
+    building = _uploaded_designs.get(req.design_id)
+    if building is None:
+        raise HTTPException(404, "This uploaded design has expired. Upload it again.")
+    p = BuildingParams(occupancy=req.occupancy, agent_speed=req.agent_speed, seed=req.seed,
+                       num_exits=min(4, max(1, len(building.exits)))).normalized()
+    try:
+        result = services.engine.simulate(p, SimConfig(record=req.record), building_override=building)
+    except (ValueError, IndexError) as exc:
+        raise HTTPException(422, f"This extracted floor plan cannot be simulated: {exc}") from exc
+    return _json({
+        "params": {"n_floors": 1, "occupancy": [req.occupancy], "floor_height": 3.5,
+                   "corridor_width": p.corridor_width, "exit_width": p.exit_width, "stair_width": 1.5,
+                   "num_exits": len(building.exits), "agent_speed": p.agent_speed,
+                   "blocked_exits": [], "blocked_stairs": [], "seed": p.seed},
+        "n_floors": 1, "completed": result["completed"], "total_agents": result["total_agents"],
+        "evacuated": result["evacuated"], "clearance_time": result["clearance_time"],
+        "average_time": result["average_time"], "median_time": result["median_time"],
+        "max_density": result["max_density"], "bottleneck": result["bottleneck"],
+        "bottlenecks_by_floor": [{**result["bottleneck"], "floor": 0}],
+        "exit_utilization": result["exit_utilization"], "timeline": result["timeline"],
+        "floors": [result], "floor_height": 3.5, "stair_descent_speed": 0.6,
+        "stair_landing_points": {},
+        "engine": {"name": result["engine"]["name"], "per_floor_engine": result["engine"]["name"],
+                   "device": "CPU (NumPy)", "compute_time_s": result["engine"]["compute_time_s"]},
+    })
 
 
 @router.get("/building")

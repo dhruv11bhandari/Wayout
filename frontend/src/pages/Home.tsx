@@ -117,10 +117,10 @@ export default function Home({ onNavigate }: { onNavigate: (route: Route) => voi
       <section className="section arch-section">
         <div className="section-inner">
           <div className="section-kicker">Built for NVIDIA acceleration</div>
-          <h2 className="section-title">Two integration points, neither required to run.</h2>
+          <h2 className="section-title">Local evacuation simulation, with AI-assisted plan import.</h2>
           <p className="section-body">
-            Wayout runs entirely on CPU today. Both integrations below are real interfaces already in the
-            codebase, not a simulated toggle - the status shown is read live from the running server.
+            The demo and evacuation model run locally. Uploaded floor plans use Nemotron to draft geometry;
+            the running server reports whether plan extraction is configured.
           </p>
           <div className="arch-cols">
             <div className="arch-col">
@@ -147,20 +147,20 @@ export default function Home({ onNavigate }: { onNavigate: (route: Route) => voi
               <div className="arch-col-title">
                 Wayout Intelligence
                 <span className="arch-status">
-                  <span className="dot" style={{ color: config?.nemotron_active ? '#4ade80' : 'var(--ink-faint)' }} />
-                  {config ? (config.nemotron_active ? 'Nemotron active' : 'Rule-based (local)') : '…'}
+                  <span className="dot" style={{ color: config?.nemotron_design_available ? '#4ade80' : 'var(--ink-faint)' }} />
+                  {config ? (config.nemotron_design_available ? 'Plan import ready' : 'Plan import not configured') : '…'}
                 </span>
               </div>
               <div className="arch-flow">
-                <div className="arch-node">Wayout Intelligence</div>
+                <div className="arch-node">Uploaded floor plan</div>
                 <div className="arch-arrow">&darr;</div>
-                <div className="arch-node dim">NVIDIA Nemotron</div>
+                <div className="arch-node dim">NVIDIA Nemotron Omni</div>
                 <div className="arch-arrow">&darr;</div>
-                <div className="arch-node">AI Copilot</div>
+                <div className="arch-node">Reviewable floor-plan geometry</div>
               </div>
               <div className="arch-note">
-                FallbackCopilotProvider answers every question today. A Nemotron implementation would narrate
-                the same simulator output - it would never be allowed to invent its own numbers.
+                Nemotron proposes rooms, walls, and exits from a one-floor image or PDF. WayOut converts that
+                draft into simulator geometry; image-derived measurements should be reviewed.
               </div>
             </div>
           </div>

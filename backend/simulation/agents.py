@@ -48,40 +48,55 @@ def _sample_rect(rng, rect, k, placed, avoid=()) -> List[Tuple[float, float]]:
 
 
 def spawn_agents(building: Building, params: BuildingParams) -> Spawn:
-    """Deterministic (seeded) placement: ~88% in rooms, ~12% circulating in corridor/lobby."""
+    """Deterministic (seeded) placement across the building's labelled walkable areas."""
     p = params.normalized()
     rng = np.random.default_rng(p.seed)
     N = p.occupancy
-    n_circ = int(round(0.12 * N))
-    n_room = N - n_circ
+    # Preserve the established demo's allocation and seeded placement exactly.
+    if building.meta.get("source") != "nemotron_upload":
+        n_circ = int(round(0.12 * N))
+        n_room = N - n_circ
+        rooms = building.rooms
+        areas = np.array([r.width * r.height for r in rooms], dtype=float)
+        factors = rng.uniform(0.6, 1.5, len(rooms))
+        counts = _largest_remainder(areas * factors, n_room)
+        placed: List[Tuple[float, float]] = []
+        zone: List[str] = []
+        room_counts: Dict[str, int] = {}
+        for r, c in zip(rooms, counts):
+            m = 0.6
+            pts = _sample_rect(rng, (r.x + m, r.y + m, r.x + r.width - m, r.y + r.height - m), int(c), placed)
+            placed += pts; zone += [r.id] * len(pts)
+            room_counts[r.id] = len(pts)
+        corr = next(c for c in building.corridors if c.kind == "corridor")
+        lobby = next(c for c in building.corridors if c.kind == "lobby")
+        n_corr = int(round(0.6 * n_circ)); n_lob = n_circ - n_corr
+        cm = min(0.35, corr.height / 2 - 0.3)
+        pts = _sample_rect(rng, (corr.x + 1.5, corr.y + cm, corr.x + corr.width - 3.0, corr.y + corr.height - cm), n_corr, placed)
+        placed += pts; zone += ["corridor"] * len(pts)
+        avoid = [(o.x - 0.6, o.y - 0.6, o.x + o.width + 0.6, o.y + o.height + 0.6) for o in building.obstacles]
+        pts = _sample_rect(rng, (lobby.x + 2.0, lobby.y + 2.0, lobby.x + lobby.width - 2.0, lobby.y + lobby.height - 2.0), n_lob, placed, avoid)
+        placed += pts; zone += ["lobby"] * len(pts)
+        room_counts["corridor"] = n_corr
+        room_counts["lobby"] = n_lob
+        return Spawn(np.array(placed, dtype=np.float64), zone, room_counts)
 
-    rooms = building.rooms
-    areas = np.array([r.width * r.height for r in rooms], dtype=float)
-    factors = rng.uniform(0.6, 1.5, len(rooms))
-    counts = _largest_remainder(areas * factors, n_room)
-
+    spaces = [*building.rooms, *building.corridors]
+    if not spaces:
+        raise ValueError("The imported design must include at least one room or walkable area.")
+    areas = np.array([max(0.1, s.width * s.height) for s in spaces], dtype=float)
+    # Imported plans carry no occupant allocation, so distribute occupants by area.
+    counts = _largest_remainder(areas, N)
     placed: List[Tuple[float, float]] = []
     zone: List[str] = []
     room_counts: Dict[str, int] = {}
-    for r, c in zip(rooms, counts):
-        m = 0.6
-        rect = (r.x + m, r.y + m, r.x + r.width - m, r.y + r.height - m)
-        pts = _sample_rect(rng, rect, int(c), placed)
-        placed += pts; zone += [r.id] * len(pts)
-        room_counts[r.id] = len(pts)
-
-    corr = next(c for c in building.corridors if c.kind == "corridor")
-    lobby = next(c for c in building.corridors if c.kind == "lobby")
-    n_corr = int(round(0.6 * n_circ)); n_lob = n_circ - n_corr
-    cm = min(0.35, corr.height / 2 - 0.3)
-    pts = _sample_rect(rng, (corr.x + 1.5, corr.y + cm, corr.x + corr.width - 3.0, corr.y + corr.height - cm), n_corr, placed)
-    placed += pts; zone += ["corridor"] * len(pts)
-    avoid = [(o.x - 0.6, o.y - 0.6, o.x + o.width + 0.6, o.y + o.height + 0.6) for o in building.obstacles]
-    pts = _sample_rect(rng, (lobby.x + 2.0, lobby.y + 2.0, lobby.x + lobby.width - 2.0, lobby.y + lobby.height - 2.0),
-                       n_lob, placed, avoid)
-    placed += pts; zone += ["lobby"] * len(pts)
-    room_counts["corridor"] = n_corr
-    room_counts["lobby"] = n_lob
+    for space, c in zip(spaces, counts):
+        m = min(0.35, space.width * 0.15, space.height * 0.15)
+        rect = (space.x + m, space.y + m, space.x + space.width - m, space.y + space.height - m)
+        avoid = [(o.x - 0.3, o.y - 0.3, o.x + o.width + 0.3, o.y + o.height + 0.3) for o in building.obstacles]
+        pts = _sample_rect(rng, rect, int(c), placed, avoid)
+        placed += pts; zone += [space.id] * len(pts)
+        room_counts[space.id] = len(pts)
     return Spawn(np.array(placed, dtype=np.float64), zone, room_counts)
 
 

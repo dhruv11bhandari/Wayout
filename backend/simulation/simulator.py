@@ -97,13 +97,14 @@ class LocalSimulationEngine(SimulationEngine):
     name = "LocalSimulationEngine"
     description = "CPU / NumPy social-force-inspired pedestrian model"
 
-    def simulate(self, params: BuildingParams, config: Optional[SimConfig] = None) -> Dict[str, Any]:
+    def simulate(self, params: BuildingParams, config: Optional[SimConfig] = None,
+                 building_override=None) -> Dict[str, Any]:
         cfg = config or SimConfig()
         p = params.normalized()
         seed = p.seed if cfg.seed is None else cfg.seed
         t_wall = time.perf_counter()
 
-        env = get_environment(p, cfg.label_prefix)
+        env = Environment(building_override) if building_override is not None else get_environment(p, cfg.label_prefix)
         b = env.building
         E = len(env.exits)
         spawn = spawn_agents(b, p)

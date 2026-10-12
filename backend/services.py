@@ -102,4 +102,5 @@ def runtime_info() -> Dict[str, Any]:
         "cuda_active": engine.name == "CudaSimulationEngine",
         "nemotron_enabled": interpreter.name == "NemotronCopilotProvider",
         "nemotron_active": interpreter.name == "NemotronCopilotProvider",
+        "nemotron_design_available": bool(os.environ.get("NEMOTRON_API_KEY", "").strip()),
     }

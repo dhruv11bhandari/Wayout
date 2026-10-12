@@ -58,6 +58,34 @@ export const api = {
   reset: () => req<{ ok: boolean }>('/api/reset', post({})),
   copilot: (text: string, p: Params) => req<CopilotReply>('/api/copilot', post({ text, params: p })),
 
+  parseDesign: async (file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    let res: Response;
+    try {
+      res = await fetch('/api/design/parse', { method: 'POST', body });
+    } catch (error) {
+      if (error instanceof TypeError) {
+        throw new Error('WayOut could not reach its local API. Restart the app with start.sh, wait for both services to start, and try again.');
+      }
+      throw error;
+    }
+    if (!res.ok) {
+      let message = `${res.status} ${res.statusText}`.trim();
+      try {
+        const j = await res.json();
+        const detail = j.detail ?? j.message;
+        if (typeof detail === 'string') message = detail;
+        else if (detail != null) message = JSON.stringify(detail);
+      } catch { /* the server may return a non-JSON proxy error */ }
+      if (res.status >= 500 && !message) message = 'The local API could not complete the upload. Restart WayOut and try again.';
+      throw new Error(message);
+    }
+    return res.json() as Promise<ImportedDesign>;
+  },
+  simulateDesign: (design_id: string, occupancy: number, agent_speed: number, seed: number) =>
+    req<MultiFloorResult>('/api/design/simulate', post({ design_id, occupancy, agent_speed, seed, record: true })),
+
   // ---------------------------------------------------------------- multi-floor
   buildingMulti: (p: MultiFloorParams) => req<MultiFloorBuilding>(`/api/building/multi?${qMulti(p)}`),
   predictMulti: (p: MultiFloorParams) => req<PredictionMulti>('/api/predict/multi', post({ params: p })),
@@ -72,3 +100,10 @@ export const api = {
       '/api/recommend', post({ params: p }),
     ),
 };
+
+export interface ImportedDesign {
+  design_id: string;
+  source_name: string;
+  uncertainties: string[];
+  building: MultiFloorBuilding;
+}

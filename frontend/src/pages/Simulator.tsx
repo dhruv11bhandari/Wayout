@@ -19,7 +19,8 @@ import Heatmap3D from '../three/Heatmap3D';
 import { api } from '../api/client';
 import { fmtClock, fmtSigned } from '../utils/format';
 import type { CameraPresetT } from '../three/scene-utils';
-import type { CopilotMessage, HeatMode, MultiFloorResult } from '../types';
+import type { CopilotMessage, HeatMode, MultiFloorBuilding, MultiFloorResult } from '../types';
+import type { ImportedDesign } from '../api/client';
 import './Simulator.enhancements.css';
 
 type Route = 'home' | 'simulator';
@@ -294,7 +295,15 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
     health, config, params, updateParams, setFloorCount, setTotalOccupancy, toggleBlockedExit, toggleBlockedStair,
     building, prediction, predictionLoading, result, trajectories, status, error, run, baseline, pinBaseline,
     recommendations, recStatus, fetchRecommendations, applyAndRun, selectedFloor, setSelectedFloor, playback,
+    setBuildingOverride, runImported, clearRun,
   } = sim;
+
+  const [startChoice, setStartChoice] = useState<'choose' | 'demo' | 'upload'>('choose');
+  const [uploadedDesign, setUploadedDesign] = useState<ImportedDesign | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [lastUploadFile, setLastUploadFile] = useState<File | null>(null);
+  const resultSections = uploadedDesign ? SECTIONS.slice(0, 2) : SECTIONS;
 
   const [view, setView] = useState<ViewMode>('3d');
   const [camPreset, setCamPreset] = useState<CameraPresetT>('iso');
@@ -323,7 +332,43 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   const floorHeight = params.floor_height;
   const floorCount = building?.floors?.length ?? 0;
 
-  const runSim = useCallback(() => { void run(); }, [run]);
+  const runSim = useCallback(() => {
+    if (uploadedDesign) void runImported(uploadedDesign.design_id, sumOf(params.occupancy), params.agent_speed, params.seed);
+    else void run();
+  }, [run, runImported, uploadedDesign, params]);
+
+  const selectDemo = () => {
+    clearRun();
+    setUploadedDesign(null);
+    setBuildingOverride(null);
+    setFloorCount(3);
+    setTotalOccupancy(500);
+    setStartChoice('demo');
+  };
+
+  const handleUpload = async (file?: File) => {
+    if (!file) return;
+    setLastUploadFile(file);
+    if (file.size > 20 * 1024 * 1024) {
+      setUploadError('This file is larger than 20 MB. Choose a smaller image or export the floor plan at a lower resolution.');
+      return;
+    }
+    setUploadBusy(true);
+    setUploadError(null);
+    clearRun();
+    try {
+      const imported = await api.parseDesign(file);
+      setUploadedDesign(imported);
+      setBuildingOverride(imported.building as MultiFloorBuilding);
+      setFloorCount(1);
+      setTotalOccupancy(140);
+      setStartChoice('upload');
+    } catch (e: any) {
+      setUploadError(e?.message ?? 'Could not read this floor plan.');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
 
   /* ── Copilot ─────────────────────────────────────────────────────────── */
   const handleSendCopilot = async (text: string) => {
@@ -427,14 +472,14 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   // Highlight the section currently in view.
   useEffect(() => {
     if (!hasResult) return;
-    const els = SECTIONS.map((s) => document.getElementById(`sec-${s.id}`)).filter(Boolean) as HTMLElement[];
+    const els = resultSections.map((s) => document.getElementById(`sec-${s.id}`)).filter(Boolean) as HTMLElement[];
     const io = new IntersectionObserver(
       (entries) => entries.forEach((e) => e.isIntersecting && setActiveSection(e.target.id.replace('sec-', ''))),
       { rootMargin: '-35% 0px -55% 0px' },
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, [hasResult]);
+  }, [hasResult, uploadedDesign]);
 
   // Keyboard shortcuts (registered once, reads the latest values from a ref).
   const latest = useRef({ running, runSim, selectedFloor, floorCount, setSelectedFloor, toggleFullscreen });
@@ -489,6 +534,58 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   const blockedCount = Array.isArray(params.blocked_exits) ? params.blocked_exits.length : 0;
   const showReady = !result && !running && !error;
 
+  if (startChoice === 'choose' || (startChoice === 'upload' && !uploadedDesign)) {
+    return (
+      <div className="simulator">
+        <header className="header">
+          <button className="brand" onClick={() => onNavigate('home')} aria-label="Wayout home"><span className="brand-mark" /><span className="brand-name">WAYOUT</span></button>
+          <div className="header-right"><button className="btn ghost small" onClick={() => onNavigate('home')}>Home</button></div>
+        </header>
+        <main className="wy-start-flow">
+          <div className="wy-start-kicker">EVACUATION SIMULATOR</div>
+          <h1>{startChoice === 'choose' ? 'Choose how to begin' : 'Upload your floor plan'}</h1>
+          <p className="wy-start-intro">Run the demo building or let Nemotron read a floor plan and prepare it for simulation.</p>
+          {startChoice === 'choose' ? (
+            <div className="wy-choice-grid">
+              <button className="wy-choice-card" onClick={selectDemo}>
+                <span className="wy-choice-number">01</span><strong>Demo run</strong>
+                <span>Open the ready-made three-floor building and run the simulator as usual.</span>
+                <b>Use demo building →</b>
+              </button>
+              <button className="wy-choice-card" onClick={() => setStartChoice('upload')}>
+                <span className="wy-choice-number">02</span><strong>Upload your design</strong>
+                <span>Use a floor-plan image or one-page PDF to create a building for evacuation analysis.</span>
+                <b>Upload a design →</b>
+              </button>
+            </div>
+          ) : (
+            <div className="wy-upload-card">
+              <button className="btn ghost small" onClick={() => { setStartChoice('choose'); setUploadError(null); }}>← Back</button>
+              <label className="wy-drop-area">
+                <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf,.png,.jpg,.jpeg,.webp,.pdf"
+                  disabled={uploadBusy} onChange={(e) => { void handleUpload(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }} />
+                <span className="wy-upload-icon">↑</span>
+                <strong>{uploadBusy ? 'Reading your floor plan…' : 'Choose a floor plan'}</strong>
+                <span>PNG, JPG, WEBP, or a single-page PDF · up to 20 MB</span>
+              </label>
+              <p className="wy-upload-note">Nemotron will draft the rooms, walls, and exits. Please review the extracted plan before simulation; measurements inferred from an image may need correction.</p>
+              {uploadError && (
+                <div className="wy-upload-error" role="alert">
+                  <span>{uploadError}</span>
+                  {lastUploadFile && lastUploadFile.size <= 20 * 1024 * 1024 && (
+                    <button className="btn ghost small" type="button" disabled={uploadBusy} onClick={() => { void handleUpload(lastUploadFile); }}>
+                      {uploadBusy ? 'Trying again…' : 'Try again'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="simulator">
       <a className="wy-skip" href="#sec-metrics" onClick={(e) => { if (!hasResult) e.preventDefault(); }}>
@@ -521,20 +618,45 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
       </header>
 
       <div className="main">
-        <ParameterPanel
-          params={params}
-          onChange={updateParams}
-          onFloorCount={setFloorCount}
-          onTotalOccupancy={setTotalOccupancy}
-          onToggleExit={toggleBlockedExit}
-          onToggleStair={toggleBlockedStair}
-          onRun={run}
-          running={running}
-          prediction={prediction}
-          predictionLoading={predictionLoading}
-        />
+        {uploadedDesign ? (
+          <aside className="param-panel">
+            <div className="panel-head"><h3>Uploaded building</h3></div>
+            <div className="param">
+              <div className="param-row"><label htmlFor="uploaded-occupancy">Occupants</label><span className="param-value">{totalOcc}</span></div>
+              <input id="uploaded-occupancy" type="range" min={10} max={400} step={10} value={Math.max(10, Math.min(400, totalOcc))}
+                onChange={(e) => setTotalOccupancy(Number(e.target.value))} />
+              <div className="param-hint">Distributed across the detected rooms and walkable areas. Maximum 400 for this run.</div>
+            </div>
+            <div className="param">
+              <div className="param-row"><label>Walking speed</label><span className="param-value">{params.agent_speed.toFixed(1)} m/s</span></div>
+              <input type="range" min={0.5} max={2} step={0.1} value={params.agent_speed}
+                onChange={(e) => updateParams({ agent_speed: Number(e.target.value) })} />
+            </div>
+            <div className="go-row"><button className={`go-btn ${running ? 'running' : ''}`} disabled={running} onClick={runSim}>{running ? 'Simulating…' : 'Run Simulation'}</button></div>
+            {uploadedDesign.uncertainties.length > 0 && <div className="wy-plan-uncertainties"><strong>Check the extracted plan</strong><ul>{uploadedDesign.uncertainties.map((u, i) => <li key={i}>{u}</li>)}</ul></div>}
+          </aside>
+        ) : (
+          <ParameterPanel
+            params={params}
+            onChange={updateParams}
+            onFloorCount={setFloorCount}
+            onTotalOccupancy={setTotalOccupancy}
+            onToggleExit={toggleBlockedExit}
+            onToggleStair={toggleBlockedStair}
+            onRun={runSim}
+            running={running}
+            prediction={prediction}
+            predictionLoading={predictionLoading}
+          />
+        )}
 
         <div className="canvas-wrap">
+          {uploadedDesign && (
+            <div className="wy-import-banner">
+              <span>Imported: <strong>{uploadedDesign.source_name}</strong> · 1 floor</span>
+              <button className="btn ghost small" onClick={() => { setUploadedDesign(null); setBuildingOverride(null); setStartChoice('choose'); }}>Choose another start</button>
+            </div>
+          )}
           <div className="viewport" ref={viewportRef} role="region" aria-label="Evacuation viewport">
             {view === '3d' ? (
               <Canvas
@@ -752,7 +874,7 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
       {result && verdict && (
         <div className="scroll-sections">
           <nav className="wy-section-nav" aria-label="Result sections">
-            {SECTIONS.map((s) => (
+            {resultSections.map((s) => (
               <button
                 key={s.id}
                 className={activeSection === s.id ? 'on' : ''}
@@ -788,14 +910,14 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
           <Section id="metrics" num="01" kicker="LIVE METRICS" title="Whole-building metrics">
             <div className="metrics-grid">
               <MetricsCard label="Clearance time" value={fmtClock(result.clearance_time)} tone={result.completed ? 'good' : 'bad'} />
-              <MetricsCard
+              {!uploadedDesign && <MetricsCard
                 label="AI predicted clearance"
                 value={prediction ? fmtClock(prediction.predicted_clearance_time) : '—'}
                 tone="accent"
                 sub={prediction
                   ? `${fmtSigned(prediction.predicted_clearance_time - result.clearance_time)}s vs. actual · typ. ±${prediction.expected_error_s.toFixed(0)}s`
                   : undefined}
-              />
+              />}
               <MetricsCard label="Total occupants" value={result.total_agents} />
               <MetricsCard label="Peak density" value={result.max_density.toFixed(1)} unit="/m²" tone={result.max_density > 4 ? 'bad' : result.max_density > 2.5 ? 'warn' : 'good'} />
               <MetricsCard label="Floors" value={result.n_floors} />
@@ -807,15 +929,15 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
             <BottleneckPanel global={result.bottleneck} byFloor={result.bottlenecks_by_floor} />
           </Section>
 
-          <Section id="recommendations" num="03" kicker="WAYOUT AI" title="Recommendations">
+          {!uploadedDesign && <Section id="recommendations" num="03" kicker="WAYOUT AI" title="Recommendations">
             <p className="dim" style={{ marginBottom: 20, maxWidth: 640 }}>
               Ranked by {result.n_floors > 1 ? 'real re-simulation of each candidate change' : "Wayout's trained ML surrogate"},
               against the bottleneck actually detected above - never a canned suggestion.
             </p>
             <RecommendationList recommendations={recommendations} status={recStatus} onFetch={fetchRecommendations} onApply={applyAndRun} applying={running} />
-          </Section>
+          </Section>}
 
-          <Section id="compare" num="04" kicker="SCENARIO COMPARISON" title="Baseline vs. current design">
+          {!uploadedDesign && <Section id="compare" num="04" kicker="SCENARIO COMPARISON" title="Baseline vs. current design">
             {baseline ? (
               <ScenarioCompare baseline={baseline.result} current={result} />
             ) : (
@@ -828,9 +950,9 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
                 <Icon name="pin" size={14} /> {baseline ? 'Replace baseline with current design' : 'Pin current design as baseline'}
               </button>
             </div>
-          </Section>
+          </Section>}
 
-          <Section id="copilot" num="05" kicker="COPILOT" title="Ask Wayout">
+          {!uploadedDesign && <Section id="copilot" num="05" kicker="COPILOT" title="Ask Wayout">
             <p className="dim" style={{ marginBottom: 16, maxWidth: 640 }}>
               Reasons about the ground floor, where the building&rsquo;s real exits are. Every number it cites came
               from the simulation above - it can&rsquo;t invent one.
@@ -847,7 +969,7 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
             <div className="scroll-copilot">
               <Copilot messages={copilotMessages} busy={copilotBusy} onSend={handleSendCopilot} />
             </div>
-          </Section>
+          </Section>}
         </div>
       )}
 
