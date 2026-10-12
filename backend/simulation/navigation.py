@@ -86,12 +86,32 @@ class Environment:
         j0 = int(round((y0 - self.oy) / RES_FINE)); j1 = int(round((y1 - self.oy) / RES_FINE))
         arr[max(j0, 0):max(j1, 0), max(i0, 0):max(i1, 0)] = True
 
+    def _clear(self, arr: np.ndarray, rect: Tuple[float, float, float, float]) -> None:
+        x0, y0, x1, y1 = rect
+        i0 = int(round((x0 - self.ox) / RES_FINE)); i1 = int(round((x1 - self.ox) / RES_FINE))
+        j0 = int(round((y0 - self.oy) / RES_FINE)); j1 = int(round((y1 - self.oy) / RES_FINE))
+        arr[max(j0, 0):max(j1, 0), max(i0, 0):max(i1, 0)] = False
+
     def _rasterise(self) -> None:
         blocked = np.zeros((self.ny, self.nx), dtype=bool)
         for w in self.building.walls:
             self._fill(blocked, w.rect())
         for o in self.building.obstacles:
             self._fill(blocked, (o.x, o.y, o.x + o.width, o.y + o.height))
+        # Imported plans may have imperfect wall/obstacle geometry at an exit.
+        # Keep the full doorway aperture and a short outside apron physically clear.
+        for ex in self.exits:
+            half = ex.width / 2
+            inward = max(self.building.wall_thickness, 0.2) + 0.35
+            if ex.id and ex.normal[1] < 0:  # north
+                rect = (ex.x - half, -MARGIN, ex.x + half, min(self.H, ex.y + inward))
+            elif ex.normal[1] > 0:  # south
+                rect = (ex.x - half, max(0.0, ex.y - inward), ex.x + half, self.H + MARGIN)
+            elif ex.normal[0] > 0:  # east
+                rect = (max(0.0, ex.x - inward), ex.y - half, self.W + MARGIN, ex.y + half)
+            else:  # west
+                rect = (-MARGIN, ex.y - half, min(self.W, ex.x + inward), ex.y + half)
+            self._clear(blocked, rect)
         self.blocked = blocked
 
     def _wall_field(self) -> None:
@@ -152,6 +172,13 @@ class Environment:
             Dk[free] = dist_nodes
             D[k] = Dk
             DIR[k] = self._direction_field(Dk, seeds, ex)
+        if self.building.meta.get("source") == "nemotron_upload" and E:
+            unreachable = free & ~np.isfinite(D).any(axis=0)
+            if unreachable.any():
+                raise ValueError(
+                    "This floor plan has a walkable area with no path to any exit. "
+                    "Check that room doors and corridors connect to an exit, then upload the corrected plan."
+                )
         self.D = D
         # nearest-valid fill so every cell (even wall-adjacent ones) has a value
         self.D_fill = np.empty_like(D, dtype=np.float32)

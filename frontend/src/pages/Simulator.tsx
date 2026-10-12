@@ -568,7 +568,7 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
                 <strong>{uploadBusy ? 'Reading your floor plan…' : 'Choose a floor plan'}</strong>
                 <span>PNG, JPG, WEBP, or a single-page PDF · up to 20 MB</span>
               </label>
-              <p className="wy-upload-note">Nemotron will draft the rooms, walls, and exits. Please review the extracted plan before simulation; measurements inferred from an image may need correction.</p>
+              <p className="wy-upload-note">Nemotron will identify marked exits and draft connected rooms, doors, and walls. Exits appear as green markers. Review the extracted plan before simulation; image-based measurements may need correction.</p>
               {uploadError && (
                 <div className="wy-upload-error" role="alert">
                   <span>{uploadError}</span>
