@@ -773,6 +773,8 @@ deleted, in case you want to reference or restore the original single-floor-only
 
 ## Troubleshooting
 
+
+
 * **"Backend not reachable"** - start it (`python main.py` in `backend/`); the UI retries automatically.
 * **Port in use** - backend: `WAYOUT_PORT=8001 python main.py` (then set the proxy target in
   `frontend/vite.config.ts`); frontend: `npm run dev -- --port 5174`.
