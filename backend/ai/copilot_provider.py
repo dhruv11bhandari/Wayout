@@ -7,7 +7,7 @@
 This module only renames/wires things to match the NVIDIA-integration shape described in
 the product brief - `copilot.py` already has the real, tested rule-based interpreter and
 the Nemotron stub; this is where a real Nemotron client would eventually get plugged in
-and selected, the same way `CUDA_ENABLED` gates `simulation/cuda_engine.py`.
+and selected, the same way `CUDA_ENABLED` gates `simulation/cuda_engine.py" .
 """
 from __future__ import annotations
 
