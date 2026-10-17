@@ -2,6 +2,7 @@
 
 **\*\*AI-powered evacuation intelligence for building design.\*\***
 
+
 Wayout builds a digital evacuation model of a building - now multi-floor, with a 3D architectural
 
 visualization as the primary experience - watches a crowd evacuate it, shows *\*where\** and *\*why\** people
