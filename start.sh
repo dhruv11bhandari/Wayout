@@ -7,7 +7,8 @@ cd "$(dirname "$0")"
 
 PY="${PYTHON:-python3}"
 
-# Check requirements
+
+#Check requirements
 command -v "$PY" >/dev/null 2>&1 || {
   echo "Python 3.10+ is required."
   echo "Install Python with: brew install python"
