@@ -1,5 +1,7 @@
 {
-  "model_name": "HistGradientBoostingRegressor (monotonic constraints)",
+  "model_name": "MLPRegressor (Adam gradient descent)",
+  "model_version": "wayout-mlp-adam-v2",
+  "training_algorithm": "Two-hidden-layer MLP trained with Adam; standardized inputs and target",
   "n_samples": 1032,
   "n_train": 825,
   "n_test": 207,
@@ -7,22 +9,16 @@
   "target_mean_s": 94.97,
   "target_std_s": 42.38,
   "holdout": {
-    "mae_s": 7.777,
-    "rmse_s": 15.536,
-    "r2": 0.8978,
-    "mape_pct": 7.0
+    "mae_s": 6.73,
+    "rmse_s": 13.927,
+    "r2": 0.9179,
+    "mape_pct": 6.16
   },
   "cross_val_5fold": {
-    "mae_s": 7.072,
-    "rmse_s": 11.795,
-    "r2": 0.9226,
-    "mape_pct": 7.04
-  },
-  "benchmark_random_forest_holdout": {
-    "mae_s": 8.341,
-    "rmse_s": 16.435,
-    "r2": 0.8856,
-    "mape_pct": 7.34
+    "mae_s": 5.938,
+    "rmse_s": 9.742,
+    "r2": 0.9424,
+    "mape_pct": 6.03
   },
   "features": [
     "occupancy",
@@ -43,8 +39,8 @@
     "n_floors",
     "floor_height"
   ],
-  "trained_at": "2026-09-29 11:51:37",
+  "trained_at": "2026-10-21 15:50:07",
   "sklearn_version": "1.9.1",
   "python": "3.13.4",
-  "training_data": "Local simulator runs on procedurally varied building configurations"
+  "training_data": "Local simulator runs on procedurally varied building configurations; not real-world evacuation observations"
 }

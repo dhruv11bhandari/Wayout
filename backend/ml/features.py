@@ -48,17 +48,6 @@ FEATURE_NAMES = [
     "floor_height",
 ]
 
-# Physically motivated monotonic constraints (+1 increasing, -1 decreasing, 0 free)
-MONOTONIC = {
-    "occupancy": 1, "num_exits": -1, "total_exit_width": -1, "corridor_width": -1,
-    "mean_path_dist": 1, "max_path_dist": 1, "agent_speed": -1, "narrowest_passage": -1,
-    "occ_per_corridor_m": 1, "occ_per_exit_m": 1, "flow_limited_time_s": 1, "walk_time_max_s": 1,
-    # More floors above, or a taller flight between them, never shortens the time it takes
-    # everyone to reach the ground and get out.
-    "n_floors": 1, "floor_height": 1,
-}
-
-
 def extract_features(
     params: BuildingParams,
     n_floors: float = 1,

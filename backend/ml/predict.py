@@ -24,7 +24,7 @@ from building import BuildingParams  # noqa: E402
 from interfaces import PredictionModel  # noqa: E402
 from ml.features import FEATURE_NAMES, extract_features  # noqa: E402
 from ml.generate_dataset import DATASET_PATH, generate  # noqa: E402
-from ml.train import MODEL_PATH, train  # noqa: E402
+from ml.train import MODEL_PATH, MODEL_VERSION, train  # noqa: E402
 from simulation.multi_floor import MultiFloorParams  # noqa: E402
 
 FALLBACK_SAMPLES = 240
@@ -43,6 +43,9 @@ class LocalMLPredictionModel(PredictionModel):
             return False
         try:
             bundle = joblib.load(MODEL_PATH)
+            if bundle.get("model_version") != MODEL_VERSION:
+                print("  [ml] saved model uses an older algorithm -> re-training", flush=True)
+                return False
             if bundle["metrics"].get("sklearn_version") != sklearn.__version__:
                 print("  [ml] scikit-learn version changed since the model was saved -> re-training", flush=True)
                 return False

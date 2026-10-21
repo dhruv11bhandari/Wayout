@@ -331,9 +331,9 @@ above it) - widening it is consistently the top-ranked recommendation.
 
   time; the strongest connected region is reported and named from the floor-plan zone it falls in.
 
-\* **\*\*ML surrogate\*\*** - \`HistGradientBoostingRegressor\` with monotonic constraints, trained on 798 procedurally
+\* **\*\*ML surrogate\*\*** - a scaled two-layer \`MLPRegressor\`, trained with Adam on simulator-generated
 
-  varied single-floor buildings. Hold-out MAE 4.7 s, R^2 0.93. Used for single-floor recommendations and
+  building configurations. Used for single-floor recommendations and
 
   the "Fast AI prediction" button; multi-floor recommendations use real re-simulation instead (see above).
 
@@ -668,9 +668,10 @@ above it) - widening it is consistently the top-ranked recommendation.
   They never teleport and cannot cross walls. Exit choice is nearest-first with queue-aware re-evaluation.
 * **Bottleneck detection** - per grid cell, congestion = 0.6 x density + 0.4 x low-speed, integrated over
   time; the strongest connected region is reported and named from the floor-plan zone it falls in.
-* **ML surrogate** - `HistGradientBoostingRegressor` with monotonic constraints, trained on 798 procedurally
-  varied single-floor buildings. Hold-out MAE 4.7 s, R^2 0.93. Used for single-floor recommendations and
-  the "Fast AI prediction" button; multi-floor recommendations use real re-simulation instead (see above).
+* **ML surrogate** - a scaled two-layer `MLPRegressor`, trained with the Adam gradient-based optimizer on
+  simulator-generated building configurations. Scores measure agreement with WayOut's simulator, not validated
+  accuracy against real evacuations. Used for recommendations and
+  the "Fast AI prediction" button.
 * **Copilot** - a deterministic keyword / regex interpreter (`backend/copilot.py`, wrapped as
   `FallbackCopilotProvider` in `ai/copilot_provider.py`). It is **not a language model** and is labelled as
   such in the UI.
@@ -796,15 +797,16 @@ to run
 
 WayOut uses machine learning to estimate evacuation clearance time from building-design features. The model is trained on data produced by the project's evacuation simulator. The formulas below describe the algorithms and evaluation metrics; scikit-learn performs the model training.
 
-### 1. Histogram-based Gradient Boosting Regression
+### 1. Gradient-trained neural network (deployed predictor)
 
-The deployed predictor is scikit-learn's `HistGradientBoostingRegressor`. Gradient boosting combines a sequence of decision trees, where later trees learn to reduce errors made by the earlier trees. A simplified additive prediction formula is:
+The deployed predictor is a two-hidden-layer scikit-learn `MLPRegressor`. WayOut standardizes the input features and target clearance time, then learns network weights by minimizing squared prediction error. For parameters `θ` and training examples `(xᵢ, yᵢ)`, the objective is:
 
 ```text
-ŷ(x) = F₀(x) + η Σ[m=1 to M] hₘ(x)
+J(θ) = (1/n) Σ[i=1 to n] (yᵢ - fθ(xᵢ))² + regularization
+θ ← AdamUpdate(θ, ∇θ J)
 ```
 
-Here, `x` is the feature vector for a building, `F₀(x)` is the initial prediction, `hₘ(x)` is the contribution of tree `m`, `M` is the number of boosting iterations, and `η` is the learning rate. The histogram-based implementation groups feature values into bins to make tree building efficient. WayOut also sets monotonic constraints for selected features, guiding the model to preserve expected relationships such as higher occupancy not reducing predicted clearance time.
+The network uses 128 and 64 hidden units with ReLU activations. Adam is a gradient-descent optimizer that uses running averages of gradients to adjust the network weights. The current training settings include a learning rate of 0.003 and L2 regularization. The model does not enforce monotonic relationships between individual input features and its prediction.
 
 ### 2. Feature extraction
 
@@ -823,19 +825,9 @@ maximum walking-time estimate = maximum path distance / agent walking speed
 
 Feature extraction prepares input for the model; it is not itself a learning algorithm.
 
-### 3. Random Forest benchmark
+### 3. Training and validation
 
-The training script also fits a Random Forest Regressor as a comparison benchmark. A Random Forest averages predictions from multiple decision trees:
-
-```text
-ŷ_RF(x) = (1 / T) Σ[t=1 to T] hₜ(x)
-```
-
-Here, `T` is the number of trees and `hₜ(x)` is the prediction from tree `t`. The benchmark helps compare models; WayOut's deployed predictor is Histogram-based Gradient Boosting Regression.
-
-### 4. Train/test split and five-fold cross-validation
-
-The training script uses an 80/20 train/test split: the model is fitted on 80% of the examples and evaluated on the remaining 20%. It also uses five-fold cross-validation. The data is divided into five folds; each fold is used once for validation while the other four are used for training.
+The training script uses an 80/20 train/test split. Five-fold cross-validation runs inside the 80% training partition, with each fold used once for validation and the other four for fitting. The final reported holdout metrics come from the untouched 20% test partition.
 
 ```text
 five-fold CV score = (1 / 5) Σ[k=1 to 5] scoreₖ
@@ -843,7 +835,7 @@ five-fold CV score = (1 / 5) Σ[k=1 to 5] scoreₖ
 
 These are evaluation procedures, not separate prediction algorithms. Since the examples are generated by the project's simulator, these scores measure performance on simulator-generated data, not validated accuracy against real evacuations.
 
-### 5. Evaluation metrics
+### 4. Evaluation metrics
 
 For actual clearance times `yᵢ`, predicted times `ŷᵢ`, and `n` evaluated examples, WayOut reports:
 

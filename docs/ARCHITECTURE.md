@@ -119,8 +119,10 @@ saw no `agents` data and dropped every floor above the one being scored. Fixed b
 
 ## ML surrogate (`backend/ml/`) and recommendations (`backend/ai/recommend.py`)
 
-The surrogate (`HistGradientBoostingRegressor`, monotonic constraints, trained on 798 single-floor
-buildings, hold-out MAE 4.7 s / R^2 0.93) is unchanged. It is used for:
+The deployed surrogate is a standardized two-hidden-layer `MLPRegressor` trained with Adam. On the
+current simulator-generated dataset, it scores 5.938 s five-fold CV MAE and 6.730 s hold-out MAE.
+These figures measure agreement with WayOut's simulator, not accuracy validated against real
+evacuations. It is used for:
 
 * the "Fast AI prediction" button (single floor only, `/api/predict`);
 * single-floor recommendations (`recommend_single_floor()`): each candidate design change (widen exits,
