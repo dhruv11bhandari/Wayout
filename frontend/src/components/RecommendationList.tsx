@@ -16,16 +16,47 @@ function fmt(key: string, v: number): string {
 }
 
 export default function RecommendationList({ recommendations, status, onFetch, onApply, applying }: RecommendationListProps) {
-  if (status === 'idle') {
+  if (status === 'idle' || status === 'running') {
+    const busy = status === 'running';
     return (
-      <div style={{ textAlign: 'center', padding: '34px 0' }}>
-        <button className="btn primary" onClick={onFetch}>Generate recommendations</button>
+      <div className="wy-empty-card">
+        <div className="wy-empty-icon" aria-hidden="true">{busy ? <span className="wy-spinner" /> : '✦'}</div>
+        <div className="wy-empty-body">
+          <div className="wy-empty-title">{busy ? 'Testing design changes…' : 'Find changes that get people out faster'}</div>
+          <p>
+            {busy
+              ? 'Each candidate change is checked against the bottleneck above. Multi-floor buildings re-run the full simulation per candidate, so this can take a little while.'
+              : 'WayOut tries targeted fixes for the bottleneck it found (wider stairs, exits or corridors) and ranks them by how much they cut clearance time.'}
+          </p>
+        </div>
+        <button className="btn primary" onClick={onFetch} disabled={busy}>
+          {busy ? 'Working…' : 'Generate recommendations'}
+        </button>
       </div>
     );
   }
-  if (status === 'running') return <div className="empty">Analyzing the bottleneck and scoring design changes…</div>;
-  if (status === 'error') return <div className="error-box">Couldn't generate recommendations - try again.</div>;
-  if (!recommendations.length) return <div className="empty">No change scored better than the current design.</div>;
+  if (status === 'error') {
+    return (
+      <div className="wy-empty-card bad">
+        <div className="wy-empty-body">
+          <div className="wy-empty-title">Couldn't generate recommendations</div>
+          <p>Something went wrong while testing design changes. Your results above are unaffected.</p>
+        </div>
+        <button className="btn outline" onClick={onFetch}>Try again</button>
+      </div>
+    );
+  }
+  if (!recommendations.length) {
+    return (
+      <div className="wy-empty-card good">
+        <div className="wy-empty-icon" aria-hidden="true">✓</div>
+        <div className="wy-empty-body">
+          <div className="wy-empty-title">No change beat the current design</div>
+          <p>None of the candidate fixes evacuated the building faster than it already does.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rec-list">

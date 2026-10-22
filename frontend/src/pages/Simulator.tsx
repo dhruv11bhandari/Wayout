@@ -8,7 +8,7 @@ import RecommendationList from '../components/RecommendationList';
 import OptimizerCard from '../components/OptimizerCard';
 import SimProgressOverlay from '../components/SimProgressOverlay';
 import BottleneckPanel from '../components/BottleneckPanel';
-import MetricsCard from '../components/MetricsCard';
+import ResultMetrics from '../components/ResultMetrics';
 import FloorPlan from '../components/FloorPlan';
 import { LayerControls } from '../components/Heatmap';
 import AgentSimulation from '../components/AgentSimulation';
@@ -19,7 +19,7 @@ import Building3D from '../three/Building3D';
 import Agents3D from '../three/Agents3D';
 import Heatmap3D from '../three/Heatmap3D';
 import { api } from '../api/client';
-import { fmtClock, fmtSigned } from '../utils/format';
+import { fmtClock } from '../utils/format';
 import type { CameraPresetT } from '../three/scene-utils';
 import type { CopilotMessage, HeatMode, MultiFloorBuilding, MultiFloorResult } from '../types';
 import type { ImportedDesign } from '../api/client';
@@ -268,13 +268,22 @@ function ScenarioCompare({ baseline, current }: { baseline: MultiFloorResult; cu
     delta(baseline.clearance_time, current.clearance_time).dir === 'flat' &&
     delta(baseline.max_density, current.max_density).dir === 'flat';
   const shifted = baseline.bottleneck.label !== current.bottleneck.label;
+  if (same && !shifted) {
+    return (
+      <div className="wy-empty-card">
+        <div className="wy-empty-icon" aria-hidden="true"><Icon name="pin" size={18} /></div>
+        <div className="wy-empty-body">
+          <div className="wy-empty-title">Baseline pinned</div>
+          <p>
+            This run matches it: {fmtClock(current.clearance_time)} to clear, {current.max_density.toFixed(1)}/m² peak,
+            bottleneck at {current.bottleneck.label}. Change a parameter and run again to see what improves.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="wy-compare">
-      {same && (
-        <div className="wy-note">
-          Baseline and current design match. Change a parameter and run again to see the difference.
-        </div>
-      )}
       <CompareRow label="Clearance time" base={baseline.clearance_time} cur={current.clearance_time} format={fmtClock} />
       <CompareRow label="Peak density" base={baseline.max_density} cur={current.max_density} format={(v) => `${v.toFixed(1)}/m²`} />
       <div className="wy-cmp-row">
@@ -550,14 +559,14 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   /* ── Derived ─────────────────────────────────────────────────────────── */
   const verdict = useMemo(() => {
     if (!result) return null;
-    const d = result.max_density;
+    const d = Math.round(result.max_density * 10) / 10;  // judge the number the user sees
     if (!result.completed)
       return { tone: 'bad', title: 'Evacuation incomplete', sub: 'The run ended before every occupant reached an exit.' };
     if (d > 4)
       return { tone: 'bad', title: 'Cleared, but crowding was critical', sub: `Peak density hit ${d.toFixed(1)}/m², above the 4/m² critical level.` };
     if (d > 2.5)
       return { tone: 'warn', title: 'Cleared with congestion', sub: `Peak density reached ${d.toFixed(1)}/m², above the 2.5/m² warning level.` };
-    return { tone: 'good', title: 'Clean evacuation', sub: `Peak density stayed at ${d.toFixed(1)}/m², below the 2.5/m² warning level.` };
+    return { tone: 'good', title: 'Clean evacuation', sub: `Peak density stayed at ${d.toFixed(1)}/m², within the 2.5/m² warning level.` };
   }, [result]);
 
   const totalOcc = sumOf(params.occupancy);
@@ -961,21 +970,7 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
           </div>
 
           <Section id="metrics" num="01" kicker="LIVE METRICS" title="Whole-building metrics">
-            <div className="metrics-grid">
-              <MetricsCard label="Clearance time" value={fmtClock(result.clearance_time)} tone={result.completed ? 'good' : 'bad'} />
-              {!uploadedDesign && <MetricsCard
-                label="AI predicted clearance"
-                value={prediction ? fmtClock(prediction.predicted_clearance_time) : '—'}
-                tone="accent"
-                sub={prediction
-                  ? `${fmtSigned(prediction.predicted_clearance_time - result.clearance_time)}s vs. actual · typ. ±${prediction.expected_error_s.toFixed(0)}s`
-                  : undefined}
-              />}
-              <MetricsCard label="Total occupants" value={result.total_agents} />
-              <MetricsCard label="Peak density" value={result.max_density.toFixed(1)} unit="/m²" tone={result.max_density > 4 ? 'bad' : result.max_density > 2.5 ? 'warn' : 'good'} />
-              <MetricsCard label="Floors" value={result.n_floors} />
-              <MetricsCard label="Status" value={result.completed ? 'Completed' : 'Incomplete'} tone={result.completed ? 'good' : 'bad'} />
-            </div>
+            <ResultMetrics result={result} prediction={prediction} showPrediction={!uploadedDesign} />
           </Section>
 
           <Section id="bottlenecks" num="02" kicker="BOTTLENECKS" title="Where the building constrains egress">
@@ -992,17 +987,26 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
 
           {!uploadedDesign && <Section id="compare" num="04" kicker="SCENARIO COMPARISON" title="Baseline vs. current design">
             {baseline ? (
-              <ScenarioCompare baseline={baseline.result} current={result} />
+              <>
+                <ScenarioCompare baseline={baseline.result} current={result} />
+                <div style={{ marginTop: 14 }}>
+                  <button className="btn ghost small wy-btn-ic" onClick={handlePinBaseline}>
+                    <Icon name="pin" size={14} /> Replace baseline with current design
+                  </button>
+                </div>
+              </>
             ) : (
-              <div className="empty">
-                No baseline yet. Pin this design, change a parameter, then run again to compare.
+              <div className="wy-empty-card">
+                <div className="wy-empty-icon" aria-hidden="true"><Icon name="pin" size={18} /></div>
+                <div className="wy-empty-body">
+                  <div className="wy-empty-title">No baseline yet</div>
+                  <p>Pin this design, change a parameter, then run again to compare the two side by side.</p>
+                </div>
+                <button className="btn primary wy-btn-ic" onClick={handlePinBaseline}>
+                  <Icon name="pin" size={14} /> Pin as baseline
+                </button>
               </div>
             )}
-            <div style={{ marginTop: 14 }}>
-              <button className="btn outline small wy-btn-ic" onClick={handlePinBaseline}>
-                <Icon name="pin" size={14} /> {baseline ? 'Replace baseline with current design' : 'Pin current design as baseline'}
-              </button>
-            </div>
           </Section>}
 
           {!uploadedDesign && <Section id="copilot" num="05" kicker="COPILOT" title="Ask Wayout">
