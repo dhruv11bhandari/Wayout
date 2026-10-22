@@ -1,12 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { Trajectory, usePlayback } from '../utils/playback';
-import { DEFAULT_MULTI_PARAMS } from '../types';
+import { DEFAULT_MULTI_PARAMS, WIDTH_FIELDS } from '../types';
 import type {
-  MultiFloorBuilding, MultiFloorParams, MultiFloorResult, PredictionMulti, Recommendation, RuntimeConfig, Status,
+  MultiFloorBuilding, MultiFloorParams, MultiFloorResult, OptimizationResult, PredictionMulti, Recommendation,
+  RuntimeConfig, Status,
 } from '../types';
 
 export interface Baseline { params: MultiFloorParams; result: MultiFloorResult }
+
+/** Copy ONLY the optimizer's three widths onto `p`; every other building parameter
+ * (floors, occupancy, exits, hazards, speed, seed, ...) stays exactly as it was. */
+export function applyOptimizedWidths(p: MultiFloorParams, r: OptimizationResult): MultiFloorParams {
+  const next = { ...p };
+  for (const f of WIDTH_FIELDS) next[f] = r.optimized_params[f];
+  return next;
+}
+
+const designKey = (p: MultiFloorParams): string => JSON.stringify([
+  p.n_floors, p.occupancy, p.corridor_width, p.exit_width, p.stair_width, p.num_exits, p.agent_speed,
+  p.blocked_exits, p.blocked_stairs, p.floor_height, p.seed,
+]);
 
 /** All state for the multi-floor product: health/config, the live building preview
  * (refetched as params change), the last real simulation, per-floor Trajectory objects
@@ -38,6 +52,15 @@ export function useMultiFloorSim() {
   const [baseline, setBaseline] = useState<Baseline | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [recStatus, setRecStatus] = useState<Status>('idle');
+
+  // Smart Layout Optimizer. `optKeys` holds the designs the current result still
+  // describes (the one it was computed for, and that design with the widths applied);
+  // any other parameter change makes the result stale and clears it.
+  const [optimization, setOptimization] = useState<OptimizationResult | null>(null);
+  const [optStatus, setOptStatus] = useState<Status>('idle');
+  const [optError, setOptError] = useState<string | null>(null);
+  const [wideningBudget, setWideningBudget] = useState(2.0);
+  const optKeys = useRef<string[]>([]);
 
   const [selectedFloor, setSelectedFloor] = useState(0);
   const playback = usePlayback();
@@ -84,6 +107,17 @@ export function useMultiFloorSim() {
     }, 260);
     return () => { alive = false; clearTimeout(t); };
   }, [params]);
+
+  const clearOptimization = useCallback(() => {
+    optKeys.current = [];
+    setOptimization(null);
+    setOptStatus('idle');
+    setOptError(null);
+  }, []);
+
+  useEffect(() => {
+    if (optKeys.current.length && !optKeys.current.includes(designKey(params))) clearOptimization();
+  }, [params, clearOptimization]);
 
   const updateParams = useCallback((patch: Partial<MultiFloorParams>) => {
     setParams((p) => ({ ...p, ...patch }));
@@ -140,6 +174,10 @@ export function useMultiFloorSim() {
     setStatus('running');
     setError(null);
     setRecommendations([]);
+    // A run of the optimized layout itself keeps the card (it is not stale); anything else clears it.
+    if (optimization && designKey(paramsRef.current) !== designKey(applyOptimizedWidths(paramsRef.current, optimization))) {
+      clearOptimization();
+    }
     try {
       const r = await api.simulateMulti(paramsRef.current, true);
       applyResult(r);
@@ -148,7 +186,7 @@ export function useMultiFloorSim() {
       setError(e?.message ?? 'Simulation failed.');
       setStatus('error');
     }
-  }, [applyResult]);
+  }, [applyResult, optimization, clearOptimization]);
 
   const runImported = useCallback(async (designId: string, occupancy: number, agentSpeed: number, seed: number) => {
     setStatus('running');
@@ -176,8 +214,9 @@ export function useMultiFloorSim() {
     setBaseline(null);
     setRecommendations([]);
     setRecStatus('idle');
+    clearOptimization();
     playback.clear();
-  }, [playback]);
+  }, [playback, clearOptimization]);
 
   const fetchRecommendations = useCallback(async () => {
     setRecStatus('running');
@@ -206,12 +245,44 @@ export function useMultiFloorSim() {
     }
   }, [applyResult]);
 
+  const optimize = useCallback(async () => {
+    const requested = paramsRef.current;
+    optKeys.current = [];
+    setOptStatus('running');
+    setOptError(null);
+    setOptimization(null);
+    try {
+      const r = await api.optimizeMulti(requested, wideningBudget);
+      // Parameters moved while the search ran: this answer is for an old design.
+      if (designKey(paramsRef.current) !== designKey(requested)) { setOptStatus('idle'); return; }
+      optKeys.current = [designKey(requested), designKey(applyOptimizedWidths(requested, r))];
+      setOptimization(r);
+      setOptStatus('done');
+    } catch (e: any) {
+      setOptError(e?.message ?? 'Layout optimization failed.');
+      setOptStatus('error');
+    }
+  }, [wideningBudget]);
+
+  /** Move the sliders to the optimized widths; optionally run the full simulation on them. */
+  const applyOptimized = useCallback(async (andRun = false) => {
+    if (!optimization) return;
+    const next = applyOptimizedWidths(paramsRef.current, optimization);
+    setParams(next);
+    paramsRef.current = next;
+    if (andRun) await run();
+  }, [optimization, run]);
+
+  const optimizationApplied = !!optimization
+    && designKey(params) === designKey(applyOptimizedWidths(params, optimization));
+
   return {
     health, config, params, updateParams, setFloorCount, setTotalOccupancy, toggleBlockedExit, toggleBlockedStair,
     setBuildingOverride,
     building: buildingOverride ?? building, buildingLoading, prediction, predictionLoading, result, trajectories, status, error, run,
     baseline, pinBaseline, clearRun, recommendations, recStatus, fetchRecommendations, applyAndRun, runImported,
     selectedFloor, setSelectedFloor, playback,
+    optimization, optStatus, optError, wideningBudget, setWideningBudget, optimize, applyOptimized, optimizationApplied,
   };
 }
 

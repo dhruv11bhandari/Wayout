@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 import services
 from ai.recommend import recommend_multi_floor, recommend_single_floor
 from building import BuildingParams
+from optimization import OptimizationConfig, optimize_multi_floor
 from simulation import MultiFloorParams, SimConfig, default_multi_floor, simulate_building
 from simulation.agents import spawn_agents
 from simulation.multi_floor import stair_landing_points
@@ -92,6 +93,15 @@ class RecommendMultiIn(BaseModel):
 
 class PredictMultiIn(BaseModel):
     params: MultiFloorParamsIn = Field(default_factory=MultiFloorParamsIn)
+
+
+class OptimizeMultiIn(BaseModel):
+    """Width-only layout optimization. Every width costs 1 m of budget per metre added
+    (OptimizationConfig's default cost weights) in this first version."""
+    params: MultiFloorParamsIn = Field(default_factory=MultiFloorParamsIn)
+    widening_budget_m: float = Field(2.0, ge=0.0, le=10.0)
+    max_iterations: int = Field(12, ge=1, le=30)
+    learning_rate: float = Field(0.10, gt=0.0, le=1.0)
 
 
 CopilotIn.model_rebuild()
@@ -310,6 +320,56 @@ def recommend_multi(req: RecommendMultiIn) -> Dict[str, Any]:
             services.state.counters["multi_floor_simulations"] += 1
     return {"recommendations": recommend_multi_floor(mfp, summary), "baseline": {
         "clearance_time": summary["clearance_time"], "bottleneck": summary["bottleneck"]["label"]}}
+
+
+def _validation_summary(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Compact real-simulation metrics for the optimizer card - no trajectories or grids."""
+    return {
+        "completed": result["completed"], "total_agents": result["total_agents"], "evacuated": result["evacuated"],
+        "clearance_time": result["clearance_time"], "average_time": result["average_time"],
+        "median_time": result["median_time"], "max_density": result["max_density"],
+        "bottleneck": result["bottleneck"]["label"], "exit_utilization": result["exit_utilization"],
+        "compute_time_s": result["engine"]["compute_time_s"],
+    }
+
+
+@router.post("/optimize/multi")
+def optimize_multi(req: OptimizeMultiIn) -> Dict[str, Any]:
+    """Surrogate-assisted projected gradient descent over corridor / exit / stair widths.
+
+    The ML predictor steers every step (milliseconds each); exactly one real
+    `simulate_building()` run then validates the final layout. Nothing here changes the
+    caller's parameters or saved scenarios - the result is a proposal to apply."""
+    mfp = req.params.to_params()
+    settings = OptimizationConfig(widening_budget_m=req.widening_budget_m,
+                                  max_iterations=req.max_iterations, learning_rate=req.learning_rate)
+    validated: Dict[str, Any] = {}
+
+    def validate(candidate: MultiFloorParams) -> Dict[str, Any]:
+        result = simulate_building(candidate, SimConfig(record=False))
+        validated["summary"] = services.summarize_multi(result)
+        validated["key"] = _mkey(candidate)
+        return _validation_summary(result)
+
+    try:
+        out = optimize_multi_floor(mfp, services.predictor.predict_multi, settings, validate)
+    except ValueError as exc:
+        raise HTTPException(500, f"Layout optimization failed: {exc}") from exc
+
+    with services.state.lock:
+        baseline = services.state.multi_floor_cache.get(_mkey(mfp))  # read before caching the validation run
+        services.state.multi_floor_cache[validated["key"]] = validated["summary"]
+        services.state.counters["multi_floor_simulations"] += 1
+        services.state.counters["optimizations"] += 1
+
+    # A real baseline exists only if this exact design was already simulated; never invent one.
+    baseline_time = baseline["clearance_time"] if baseline else None
+    optimized_time = out["validated_result"]["clearance_time"]
+    out["baseline_simulated_clearance_time"] = baseline_time
+    out["validated_improvement_s"] = round(baseline_time - optimized_time, 2) if baseline_time else None
+    out["validated_improvement_pct"] = (
+        round(100.0 * (baseline_time - optimized_time) / baseline_time, 1) if baseline_time else None)
+    return out
 
 
 @router.post("/scenario")

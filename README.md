@@ -700,6 +700,11 @@ for a bug caught during this build - see below), occupant conservation across fl
 toward the ground floor, Stair / Exit labelling, hazard scoping, and the new `/api/building/multi`,
 `/api/simulate/multi`, `/api/recommend/multi` and `/api/config` endpoints.
 
+The Smart Layout Optimizer is covered by `tests/test_design_optimizer.py` (unit tests with injected
+predictors) and `tests/test_optimize_api.py` (endpoint validation, budget/bound limits, compact
+validation payload, preserved non-width parameters, the no-improvement case, and a real-predictor smoke
+test). The single validation run is always the real simulator.
+
 **Bug found and fixed while building this:** the fast (`record: false`) simulate path - used by multi-floor
 recommendations for speed - was silently omitting the per-agent `evac_time`/`exit` data multi-floor
 chaining depends on, which meant every floor above the one being scored was invisibly dropped. Fixed by
@@ -751,6 +756,7 @@ wayout/
 │   ├── simulation/                navigation, agents, social_force, density, bottleneck,
 │   │                             simulator.py (+ScheduledAgent for mid-run arrivals), multi_floor.py, cuda_engine (stub)
 │   ├── ml/                       features, generate_dataset, train, predict, dataset.csv, model.joblib
+│   ├── optimization/             design_optimizer.py (Smart Layout Optimizer: projected gradient descent on widths)
 │   ├── scenarios/                in-memory scenario store
 │   └── utils/debug_plot.py       matplotlib developer tool
 ├── frontend/src/
@@ -785,13 +791,10 @@ deleted, in case you want to reference or restore the original single-floor-only
   the internet on first run (three.js/Drei examples and Google Fonts respectively); a fully offline
   environment will fall back to plain system fonts and the 3D view needs its one-time asset fetch.
 * **Floor plan (2D) panned or zoomed out of view** - double-click the canvas (or the ⌂ button) to re-fit it.
-<<<<<<< HEAD
 
 
-=======
 ---------
 to run 
->>>>>>> 3fd8d01 (additon of calculus)
 
 ## AI/ML Algorithms
 
@@ -863,6 +866,43 @@ improvement (%) = 100 × (baseline clearance time - candidate clearance time)
 For multi-floor recommendation ranking, WayOut re-runs the multi-floor simulator for each candidate and ranks the resulting simulated clearance times rather than using the ML estimate.
 
 **Implementation:** [feature extraction](backend/ml/features.py), [model training and evaluation](backend/ml/train.py), [prediction](backend/ml/predict.py), and [recommendations](backend/ai/recommend.py).
+
+### 7. Smart Layout Optimizer (surrogate-assisted projected gradient descent)
+
+**Optimize layout** (simulator page, under the AI prediction) answers: *"I can afford to add `B` metres of
+width in total - where should those metres go?"* It changes only three widths - corridor, ground-floor
+exit and stair - and never narrows anything.
+
+1. **The ML predictor guides the search.** For each width, WayOut asks the predictor about a slightly
+   narrower and a slightly wider version (`±0.05 m`) and takes the central difference
+   `∂T/∂w ≈ (T(w + h) - T(w - h)) / 2h`. That gradient says which width cuts predicted clearance time `T`
+   fastest. Each estimate takes milliseconds, so the whole search needs no simulation.
+2. **Projected gradient descent.** It steps against the gradient (`w ← w - η∇T`), then *projects* the
+   step back to a legal design: widths clipped to the slider bounds, never below the original design,
+   and total widening scaled down to fit the budget (`Σ cost_i · Δw_i ≤ B`, all costs 1 m/m in this
+   version). A step is kept only if it improves the prediction by at least 0.01 s; otherwise the step is
+   halved. The search stops when no step helps, the budget is spent, or the iteration limit is reached.
+3. **The real simulation checks the winner.** The predictor has an expected error of a few seconds, so
+   the final layout is run once through the real multi-floor evacuation simulation. The UI shows the
+   baseline estimate, optimized estimate and real validation side by side. A real *improvement* is shown
+   only if the starting design was already simulated; WayOut never invents a baseline.
+
+**Apply optimized layout** only moves the three width sliders; **Apply and run simulation** also runs the
+normal full simulation. Floors, occupancy, exits, hazards, speed and seed are never changed, and saved
+scenarios are untouched. The optimizer is **not available for uploaded image/PDF floor plans**, which
+have fixed extracted geometry and use a separate simulation route.
+
+Known limitation: the current predictor's features describe the ground floor only (see
+`ml/features.py`), so stair width does not change its estimate. The gradient for stairs is therefore 0,
+and today the optimizer spends the budget on corridors and exits only. A predictor that includes stair
+features would let the same optimizer widen stairs without code changes.
+
+API: `POST /api/optimize/multi` with `{"params": {...multi-floor params...}, "widening_budget_m": 2.0,
+"max_iterations": 12, "learning_rate": 0.1}` (budget 0-10 m, iterations 1-30, learning rate 0-1). It
+returns predictions, the per-step trace with gradients, budget use, `stop_reason` and a compact
+`validated_result` (no trajectories or density grids).
+
+**Implementation:** [optimizer](backend/optimization/design_optimizer.py), [endpoint](backend/api/routes.py).
 
 math 
 

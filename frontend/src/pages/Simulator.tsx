@@ -5,6 +5,7 @@ import { EffectComposer, Vignette } from '@react-three/postprocessing';
 import { useMultiFloorSim } from '../state/useMultiFloorSim';
 import ParameterPanel from '../components/ParameterPanel';
 import RecommendationList from '../components/RecommendationList';
+import OptimizerCard from '../components/OptimizerCard';
 import BottleneckPanel from '../components/BottleneckPanel';
 import MetricsCard from '../components/MetricsCard';
 import FloorPlan from '../components/FloorPlan';
@@ -296,6 +297,7 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
     building, prediction, predictionLoading, result, trajectories, status, error, run, baseline, pinBaseline,
     recommendations, recStatus, fetchRecommendations, applyAndRun, selectedFloor, setSelectedFloor, playback,
     setBuildingOverride, runImported, clearRun,
+    optimization, optStatus, optError, wideningBudget, setWideningBudget, optimize, applyOptimized, optimizationApplied,
   } = sim;
 
   const [startChoice, setStartChoice] = useState<'choose' | 'demo' | 'upload'>('choose');
@@ -647,6 +649,19 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
             running={running}
             prediction={prediction}
             predictionLoading={predictionLoading}
+            optimizer={
+              <OptimizerCard
+                optimization={optimization}
+                status={optStatus}
+                error={optError}
+                budget={wideningBudget}
+                onBudget={setWideningBudget}
+                onOptimize={() => void optimize()}
+                onApply={(andRun) => void applyOptimized(andRun)}
+                applied={optimizationApplied}
+                simulating={running}
+              />
+            }
           />
         )}
 

@@ -1,6 +1,6 @@
 import type {
   Building, CopilotReply, Health, ModelInfo, MultiFloorBuilding, MultiFloorParams,
-  MultiFloorResult, Params, Prediction, PredictionMulti, Recommendation, RuntimeConfig, ScenarioRecord, SimResult,
+  MultiFloorResult, OptimizationResult, Params, Prediction, PredictionMulti, Recommendation, RuntimeConfig, ScenarioRecord, SimResult,
 } from '../types';
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -95,6 +95,8 @@ export const api = {
     req<{ recommendations: Recommendation[]; baseline: { clearance_time: number; bottleneck: string } }>(
       '/api/recommend/multi', post({ params: p }),
     ),
+  optimizeMulti: (p: MultiFloorParams, widening_budget_m: number) =>
+    req<OptimizationResult>('/api/optimize/multi', post({ params: p, widening_budget_m })),
   recommend: (p: Params) =>
     req<{ recommendations: Recommendation[]; baseline: { clearance_time: number; bottleneck: string } }>(
       '/api/recommend', post({ params: p }),

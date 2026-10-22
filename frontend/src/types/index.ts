@@ -190,6 +190,49 @@ export interface PredictionMulti {
   params: MultiFloorParams;
 }
 
+// ---------------------------------------------------------------- layout optimizer
+export type WidthField = 'corridor_width' | 'exit_width' | 'stair_width';
+export const WIDTH_FIELDS: WidthField[] = ['corridor_width', 'exit_width', 'stair_width'];
+
+export interface OptimizationStep {
+  iteration: number;
+  params: Record<WidthField, number>;
+  predicted_clearance_time: number;
+  /** d(predicted clearance time)/d(width); null for the starting point. */
+  gradient_s_per_m: Record<WidthField, number> | null;
+  budget_used_m: number;
+}
+
+/** Compact real-simulation metrics for the optimized layout (no trajectories / grids). */
+export interface OptimizationValidation {
+  completed: boolean;
+  total_agents: number;
+  evacuated: number;
+  clearance_time: number;
+  average_time: number | null;
+  median_time: number | null;
+  max_density: number;
+  bottleneck: string;
+  exit_utilization: Record<string, ExitUtil>;
+  compute_time_s: number;
+}
+
+export interface OptimizationResult {
+  baseline_predicted_clearance_time: number;
+  optimized_predicted_clearance_time: number;
+  predicted_improvement_s: number;
+  predicted_improvement_pct: number;
+  optimized_params: MultiFloorParams;
+  iterations: OptimizationStep[];
+  stop_reason: string;
+  budget: { limit_m: number; used_m: number; costs_per_m: Record<WidthField, number> };
+  validated_result: OptimizationValidation;
+  /** Real clearance of the starting design - only when it was already simulated. */
+  baseline_simulated_clearance_time: number | null;
+  validated_improvement_s: number | null;
+  validated_improvement_pct: number | null;
+}
+
 export interface MetricSet { mae_s: number; rmse_s: number; r2: number; mape_pct: number }
 export interface ModelInfo {
   model_name: string;

@@ -56,7 +56,7 @@ class AppState:
         self.last_simulation: Optional[Dict[str, Any]] = None
         self.last_multi_floor: Optional[Dict[str, Any]] = None
         self.multi_floor_cache: Dict[str, Dict[str, Any]] = {}
-        self.counters = {"simulations": 0, "predictions": 0, "multi_floor_simulations": 0}
+        self.counters = {"simulations": 0, "predictions": 0, "multi_floor_simulations": 0, "optimizations": 0}
         self.lock = threading.Lock()
 
     def reset(self) -> None:
@@ -66,7 +66,7 @@ class AppState:
             self.multi_floor_cache.clear()
             self.last_simulation = None
             self.last_multi_floor = None
-            self.counters = {"simulations": 0, "predictions": 0, "multi_floor_simulations": 0}
+            self.counters = {"simulations": 0, "predictions": 0, "multi_floor_simulations": 0, "optimizations": 0}
 
 
 state = AppState()

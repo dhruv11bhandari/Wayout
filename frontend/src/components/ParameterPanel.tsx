@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { MultiFloorParams, PredictionMulti } from '../types';
 import { fmtClock } from '../utils/format';
 
@@ -12,13 +13,15 @@ interface ParameterPanelProps {
   running: boolean;
   prediction: PredictionMulti | null;
   predictionLoading: boolean;
+  /** Smart layout optimizer controls, shown under the AI prediction (parametric designs only). */
+  optimizer?: ReactNode;
 }
 
 const GROUND_EXIT_IDS = ['A', 'B', 'C', 'D'];
 
 export default function ParameterPanel({
   params, onChange, onFloorCount, onTotalOccupancy, onToggleExit, onToggleStair, onRun, running,
-  prediction, predictionLoading,
+  prediction, predictionLoading, optimizer,
 }: ParameterPanelProps) {
   const total = params.occupancy.reduce((a, b) => a + b, 0);
   const upperFloors = Array.from({ length: Math.max(0, params.n_floors - 1) }, (_, i) => i + 1);
@@ -99,6 +102,8 @@ export default function ParameterPanel({
             : predictionLoading ? 'estimating…' : 'change a parameter to estimate'}
         </div>
       </div>
+
+      {optimizer}
 
       <div className="go-row">
         <button className={`go-btn ${running ? 'running' : ''}`} disabled={running} onClick={onRun}>
