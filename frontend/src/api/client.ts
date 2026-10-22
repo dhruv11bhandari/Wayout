@@ -1,6 +1,6 @@
 import type {
   Building, CopilotReply, Health, ModelInfo, MultiFloorBuilding, MultiFloorParams,
-  MultiFloorResult, OptimizationResult, Params, Prediction, PredictionMulti, Recommendation, RuntimeConfig, ScenarioRecord, SimResult,
+  MultiFloorResult, OptimizationResult, Params, Prediction, SimProgress, PredictionMulti, Recommendation, RuntimeConfig, ScenarioRecord, SimResult,
 } from '../types';
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -58,13 +58,14 @@ export const api = {
   reset: () => req<{ ok: boolean }>('/api/reset', post({})),
   copilot: (text: string, p: Params) => req<CopilotReply>('/api/copilot', post({ text, params: p })),
 
-  parseDesign: async (file: File) => {
+  parseDesign: async (file: File, signal?: AbortSignal) => {
     const body = new FormData();
     body.append('file', file);
     let res: Response;
     try {
-      res = await fetch('/api/design/parse', { method: 'POST', body });
+      res = await fetch('/api/design/parse', { method: 'POST', body, signal });
     } catch (error) {
+      if (signal?.aborted) throw error;  // cancelled or timed out by the caller
       if (error instanceof TypeError) {
         throw new Error('WayOut could not reach its local API. Restart the app with start.sh, wait for both services to start, and try again.');
       }
@@ -83,14 +84,15 @@ export const api = {
     }
     return res.json() as Promise<ImportedDesign>;
   },
-  simulateDesign: (design_id: string, occupancy: number, agent_speed: number, seed: number) =>
-    req<MultiFloorResult>('/api/design/simulate', post({ design_id, occupancy, agent_speed, seed, record: true })),
+  simulateDesign: (design_id: string, occupancy: number, agent_speed: number, seed: number, run_id?: string) =>
+    req<MultiFloorResult>('/api/design/simulate', post({ design_id, occupancy, agent_speed, seed, record: true, run_id })),
 
   // ---------------------------------------------------------------- multi-floor
   buildingMulti: (p: MultiFloorParams) => req<MultiFloorBuilding>(`/api/building/multi?${qMulti(p)}`),
   predictMulti: (p: MultiFloorParams) => req<PredictionMulti>('/api/predict/multi', post({ params: p })),
-  simulateMulti: (p: MultiFloorParams, record = true) =>
-    req<MultiFloorResult>('/api/simulate/multi', post({ ...p, record })),
+  simulateMulti: (p: MultiFloorParams, record = true, run_id?: string) =>
+    req<MultiFloorResult>('/api/simulate/multi', post({ ...p, record, run_id })),
+  simProgress: (run_id: string) => req<SimProgress>(`/api/simulate/progress/${encodeURIComponent(run_id)}`),
   recommendMulti: (p: MultiFloorParams) =>
     req<{ recommendations: Recommendation[]; baseline: { clearance_time: number; bottleneck: string } }>(
       '/api/recommend/multi', post({ params: p }),

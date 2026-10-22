@@ -758,3 +758,125 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- Live simulation progress (SimProgressOverlay) --------------------- */
+
+.simulator .wy-progress-box { max-width: 480px; }
+.simulator .wy-floor-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.simulator .wy-floor-step {
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.simulator .wy-floor-step.active { border-color: var(--ink); color: var(--ink); }
+.simulator .wy-floor-step.done { border-color: var(--sem-safe); color: var(--sem-safe); }
+.simulator .wy-progress {
+  width: 240px;
+  height: 3px;
+  margin: 0 auto;
+  background: var(--s3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.simulator .wy-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  transition: width 0.4s var(--ease);
+}
+.simulator .wy-progress-stats {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--wy-dim);
+  font-variant-numeric: tabular-nums;
+}
+.simulator .wy-progress-explain {
+  margin: 12px auto 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+.simulator .wy-progress-ai {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.simulator .wy-progress-ai b { color: var(--sem-ai); font-family: var(--font-mono); font-weight: 500; }
+
+/* Little walking-crowd illustration on the waiting screen (decorative). */
+.simulator .wy-walk { display: block; width: 240px; height: 60px; margin: 0 auto 10px; overflow: visible; }
+.simulator .wy-walk-floor { stroke: var(--line-strong); stroke-width: 1; }
+.simulator .wy-walk-door { fill: rgba(74, 222, 128, 0.08); stroke: rgba(74, 222, 128, 0.45); stroke-width: 1; }
+.simulator .wy-walk-sign { fill: var(--sem-safe); animation: wy-exit-glow 1.8s ease-in-out infinite; }
+.simulator .wy-walk-sign-text {
+  fill: #04120a;
+  font: 600 5.2px var(--font-mono);
+  letter-spacing: 0.06em;
+  text-anchor: middle;
+}
+.simulator .wy-walker { fill: var(--ink); animation: wy-walk-across linear infinite; }
+.simulator .wy-walker-bob { animation: wy-walk-bob 0.36s ease-in-out infinite alternate; }
+
+@keyframes wy-walk-across {
+  0%   { transform: translateX(-6px);  opacity: 0; }
+  8%   { opacity: 0.9; }
+  86%  { transform: translateX(206px); opacity: 0.9; }
+  100% { transform: translateX(220px); opacity: 0; }
+}
+@keyframes wy-walk-bob {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-1.6px); }
+}
+@keyframes wy-exit-glow {
+  0%, 100% { opacity: 0.75; filter: drop-shadow(0 0 0 rgba(74, 222, 128, 0)); }
+  50%      { opacity: 1;    filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.85)); }
+}
+
+/* The floor being simulated right now breathes gently. */
+.simulator .wy-floor-step.active { animation: wy-step-pulse 1.6s ease-in-out infinite; }
+@keyframes wy-step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(246, 246, 244, 0); }
+  50%      { box-shadow: 0 0 0 3px rgba(246, 246, 244, 0.12); }
+}
+
+/* Soft shimmer travelling along the filled part of the progress bar. */
+.simulator .wy-progress > span { position: relative; overflow: hidden; }
+.simulator .wy-progress > span::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  transform: translateX(-100%);
+  animation: wy-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes wy-shimmer { to { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .simulator .wy-progress > span { transition: none; }
+  /* Paused at their staggered start times = a still picture of people spaced out toward the exit. */
+  .simulator .wy-walker,
+  .simulator .wy-walker-bob,
+  .simulator .wy-walk-sign { animation-play-state: paused; }
+  .simulator .wy-floor-step.active,
+  .simulator .wy-progress > span::after { animation: none; }
+}
+
+/* Upload: wait message + cancel while Nemotron reads the plan. */
+.wy-upload-wait { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 4px 0; }
+.wy-upload-wait > span { color: var(--wy-dim, var(--ink-dim)); font-size: 12.5px; line-height: 1.5; }
+.wy-upload-wait > .btn { margin-left: auto; flex: 0 0 auto; }

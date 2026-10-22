@@ -6,6 +6,7 @@ import { useMultiFloorSim } from '../state/useMultiFloorSim';
 import ParameterPanel from '../components/ParameterPanel';
 import RecommendationList from '../components/RecommendationList';
 import OptimizerCard from '../components/OptimizerCard';
+import SimProgressOverlay from '../components/SimProgressOverlay';
 import BottleneckPanel from '../components/BottleneckPanel';
 import MetricsCard from '../components/MetricsCard';
 import FloorPlan from '../components/FloorPlan';
@@ -53,6 +54,8 @@ const SECTIONS = [
   { id: 'compare', label: 'Compare' },
   { id: 'copilot', label: 'Copilot' },
 ] as const;
+
+const UPLOAD_LIMIT_MS = 180_000; // backend gives up on NVIDIA after 150 s; keep a margin
 
 const COPILOT_SUGGESTIONS = [
   "What's the biggest bottleneck?",
@@ -298,6 +301,7 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
     recommendations, recStatus, fetchRecommendations, applyAndRun, selectedFloor, setSelectedFloor, playback,
     setBuildingOverride, runImported, clearRun,
     optimization, optStatus, optError, wideningBudget, setWideningBudget, optimize, applyOptimized, optimizationApplied,
+    progress,
   } = sim;
 
   const [startChoice, setStartChoice] = useState<'choose' | 'demo' | 'upload'>('choose');
@@ -305,6 +309,10 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [lastUploadFile, setLastUploadFile] = useState<File | null>(null);
+  // Reading a plan normally takes 30-60 s; when NVIDIA is congested it can be much slower.
+  // Show the wait, allow cancelling, and stop for good after UPLOAD_LIMIT_MS.
+  const [uploadElapsed, setUploadElapsed] = useState(0);
+  const uploadAbort = useRef<{ controller: AbortController; reason: 'cancel' | 'timeout' | null } | null>(null);
   const resultSections = uploadedDesign ? SECTIONS.slice(0, 2) : SECTIONS;
 
   const [view, setView] = useState<ViewMode>('3d');
@@ -358,19 +366,39 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
     setUploadBusy(true);
     setUploadError(null);
     clearRun();
+    const job: { controller: AbortController; reason: 'cancel' | 'timeout' | null } = { controller: new AbortController(), reason: null };
+    uploadAbort.current = job;
+    const limit = window.setTimeout(() => { job.reason = 'timeout'; job.controller.abort(); }, UPLOAD_LIMIT_MS);
     try {
-      const imported = await api.parseDesign(file);
+      const imported = await api.parseDesign(file, job.controller.signal);
       setUploadedDesign(imported);
       setBuildingOverride(imported.building as MultiFloorBuilding);
       setFloorCount(1);
       setTotalOccupancy(140);
       setStartChoice('upload');
     } catch (e: any) {
-      setUploadError(e?.message ?? 'Could not read this floor plan.');
+      if (job.reason === 'cancel') setUploadError('Upload cancelled. Choose the plan again whenever you are ready.');
+      else if (job.reason === 'timeout') {
+        setUploadError('NVIDIA Nemotron did not answer in time. Its free service is probably busy; wait a few minutes and try again.');
+      } else setUploadError(e?.message ?? 'Could not read this floor plan.');
     } finally {
+      window.clearTimeout(limit);
+      if (uploadAbort.current === job) uploadAbort.current = null;
       setUploadBusy(false);
     }
   };
+
+  const cancelUpload = () => {
+    const job = uploadAbort.current;
+    if (job) { job.reason = 'cancel'; job.controller.abort(); }
+  };
+
+  useEffect(() => {
+    if (!uploadBusy) { setUploadElapsed(0); return; }
+    const t0 = performance.now();
+    const id = window.setInterval(() => setUploadElapsed(Math.floor((performance.now() - t0) / 1000)), 500);
+    return () => window.clearInterval(id);
+  }, [uploadBusy]);
 
   /* ── Copilot ─────────────────────────────────────────────────────────── */
   const handleSendCopilot = async (text: string) => {
@@ -568,8 +596,20 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
                   disabled={uploadBusy} onChange={(e) => { void handleUpload(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }} />
                 <span className="wy-upload-icon">↑</span>
                 <strong>{uploadBusy ? 'Reading your floor plan…' : 'Choose a floor plan'}</strong>
-                <span>PNG, JPG, WEBP, or a single-page PDF · up to 20 MB</span>
+                <span>
+                  {uploadBusy
+                    ? `Nemotron is reading the drawing · ${fmtClock(uploadElapsed)} · usually under a minute`
+                    : 'PNG, JPG, WEBP, or a single-page PDF · up to 20 MB'}
+                </span>
               </label>
+              {uploadBusy && (
+                <div className="wy-upload-wait">
+                  {uploadElapsed >= 60 && (
+                    <span>NVIDIA's free service seems busy. WayOut will stop waiting after 3 minutes, or you can cancel now.</span>
+                  )}
+                  <button className="btn ghost small" type="button" onClick={cancelUpload}>Cancel</button>
+                </div>
+              )}
               <p className="wy-upload-note">Nemotron will identify marked exits and draft connected rooms, doors, and walls. Exits appear as green markers. Review the extracted plan before simulation; image-based measurements may need correction.</p>
               {uploadError && (
                 <div className="wy-upload-error" role="alert">
@@ -854,17 +894,15 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
               </div>
             )}
             {running && (
-              <div className="busy" role="status" aria-live="polite">
-                <div className="busy-box">
-                  <div className="busy-title">Running the evacuation…</div>
-                  <div className="busy-sub">
-                    Simulating {params.n_floors} floor{params.n_floors > 1 ? 's' : ''}
-                    {params.n_floors > 1 ? ', chained through the stairwells.' : '.'}
-                  </div>
-                  <div className="indeterminate" />
-                  <div className="wy-elapsed">Elapsed {fmtClock(elapsed)}</div>
-                </div>
-              </div>
+              <SimProgressOverlay
+                progress={progress}
+                nFloors={params.n_floors}
+                totalOccupants={sumOf(params.occupancy)}
+                elapsed={elapsed}
+                prediction={!uploadedDesign && prediction
+                  ? { seconds: prediction.predicted_clearance_time, errorS: prediction.expected_error_s }
+                  : null}
+              />
             )}
             {error && !running && (
               <div className="busy wy-error" role="alert">

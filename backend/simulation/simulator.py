@@ -19,7 +19,7 @@ from __future__ import annotations
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
@@ -56,6 +56,9 @@ class SimConfig:
     seed: Optional[int] = None       # None -> params.seed
     extra_agents: List[ScheduledAgent] = field(default_factory=list)
     label_prefix: str = "Exit"       # "Stair" for upper floors in a multi-floor building
+    # Called about once per simulated second as (sim_time_s, evacuated, total_agents) so a
+    # UI can show live progress. Read-only observer: it never changes the physics.
+    on_progress: Optional[Callable[[float, int, int], None]] = None
 
 
 def _slide(env: Environment, pos: np.ndarray, new: np.ndarray, vel: np.ndarray):
@@ -243,6 +246,8 @@ class LocalSimulationEngine(SimulationEngine):
                 for k, e in enumerate(env.exits):
                     tl["exits"][e.id].append(int(exit_counts[k]))
                 dmax_window = 0.0
+                if cfg.on_progress is not None:
+                    cfg.on_progress(t, tl["evacuated"][-1], int(N))
 
         completed = (len(ids) == 0) and (next_extra == N_extra)
         t_end = t

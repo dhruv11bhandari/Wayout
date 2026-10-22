@@ -7,6 +7,7 @@ import json
 import os
 import re
 import ssl
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -17,9 +18,26 @@ import certifi
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
 from building import Building, Corridor, Door, ExitDef, Obstacle, Room, Wall, Zone
+from building.plan_tracing import TracingFailed, trace_floor_plan
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MODEL_DEFAULT = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
+RETRY_WAITS_S = (3.0, 8.0)  # pauses before the 2nd and 3rd attempt when NVIDIA is busy
+TOTAL_LIMIT_S = 150.0       # whole Nemotron request, retries included (a normal read takes ~30-60 s)
+SILENCE_LIMIT_S = 45.0      # give up if NVIDIA sends nothing at all for this long
+AT_CAPACITY = ("NVIDIA Nemotron is temporarily at capacity, so it could not read the plan. "
+               "Wait a minute and try the upload again; your API key was not rejected.")
+TOO_SLOW = ("NVIDIA Nemotron is responding very slowly right now, so WayOut stopped waiting for it. "
+            "This is NVIDIA's free service being busy, not a problem with your plan. "
+            "Wait a few minutes and try the upload again.")
+
+
+class NemotronBusy(Exception):
+    """NVIDIA's hosted model is overloaded (or sent nothing back); worth retrying shortly."""
+
+
+class NemotronTooSlow(Exception):
+    """The answer is still trickling in after TOTAL_LIMIT_S; stop waiting."""
 
 
 class PlanJSON(BaseModel):
@@ -110,10 +128,15 @@ def _content_from_response(payload: Dict[str, Any]) -> str:
     return content
 
 
-def _read_streamed_completion(response) -> Dict[str, Any]:
-    """Collect OpenAI-compatible SSE content while the model is generating it."""
+def _read_streamed_completion(response, deadline: float = float("inf")) -> Dict[str, Any]:
+    """Collect OpenAI-compatible SSE content while the model is generating it.
+
+    When NVIDIA is congested it keeps the stream alive but generates extremely slowly, so
+    a per-read socket timeout never fires; `deadline` (time.monotonic()) caps the total."""
     parts: List[str] = []
     for line in response:
+        if time.monotonic() > deadline:
+            raise NemotronTooSlow()
         if not line.startswith(b"data:"):
             continue
         event = line[5:].strip()
@@ -123,6 +146,14 @@ def _read_streamed_completion(response) -> Dict[str, Any]:
             payload = json.loads(event)
         except json.JSONDecodeError:
             continue
+        # NVIDIA reports overload *inside* an HTTP 200 stream, e.g.
+        # {"error": {"message": "ResourceExhausted: Worker local total request limit reached ..."}}
+        error = payload.get("error") if isinstance(payload, dict) else None
+        if error:
+            message = str(error.get("message", error) if isinstance(error, dict) else error)
+            if "ResourceExhausted" in message or "limit reached" in message:
+                raise NemotronBusy(message)
+            raise RuntimeError(f"Nemotron reported an error: {message[:300]}")
         for choice in payload.get("choices", []):
             delta = choice.get("delta", {})
             content = delta.get("content")
@@ -131,7 +162,7 @@ def _read_streamed_completion(response) -> Dict[str, Any]:
             elif isinstance(content, list):
                 parts.extend(part.get("text", "") for part in content if isinstance(part, dict))
     if not parts:
-        raise ValueError("Nemotron returned an empty response.")
+        raise NemotronBusy("Nemotron returned an empty response.")
     return {"choices": [{"message": {"content": "".join(parts)}}]}
 
 
@@ -164,8 +195,21 @@ def _call_nemotron(filename: str, content_type: str, raw: bytes) -> Dict[str, An
         # store. Use the maintained Mozilla CA bundle without disabling TLS
         # verification, so NVIDIA's certificate validates on a fresh laptop.
         tls_context = ssl.create_default_context(cafile=certifi.where())
-        with urllib.request.urlopen(req, timeout=300, context=tls_context) as response:
-            result = _read_streamed_completion(response)
+        # NVIDIA's free hosted endpoint is often briefly overloaded; it then streams back
+        # an error event or nothing at all. Wait a little and retry before giving up -
+        # but never past TOTAL_LIMIT_S, so the upload screen can't hang indefinitely.
+        deadline = time.monotonic() + TOTAL_LIMIT_S
+        for attempt in range(len(RETRY_WAITS_S) + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=SILENCE_LIMIT_S, context=tls_context) as response:
+                    result = _read_streamed_completion(response, deadline)
+                break
+            except NemotronTooSlow:
+                raise RuntimeError(TOO_SLOW)
+            except NemotronBusy:
+                if attempt == len(RETRY_WAITS_S) or time.monotonic() + RETRY_WAITS_S[attempt] + 20 > deadline:
+                    raise RuntimeError(AT_CAPACITY)
+                time.sleep(RETRY_WAITS_S[attempt])
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:500]
         if exc.code in (401, 403):
@@ -178,7 +222,7 @@ def _call_nemotron(filename: str, content_type: str, raw: bytes) -> Dict[str, An
             provider_message = detail
             provider_code = ""
         if exc.code == 503 and ("ResourceExhausted" in provider_message or "ResourceExhausted" in provider_code):
-            raise RuntimeError("NVIDIA Nemotron is temporarily at capacity (503). Wait a little, then try the upload again; the API key was not rejected.") from exc
+            raise RuntimeError(AT_CAPACITY) from exc
         if exc.code == 429:
             raise RuntimeError("NVIDIA is rate-limiting requests for this API key. Wait for the limit to reset, then try again.") from exc
         raise RuntimeError(f"Nemotron request failed ({exc.code}): {detail}") from exc
@@ -187,10 +231,10 @@ def _call_nemotron(filename: str, content_type: str, raw: bytes) -> Dict[str, An
         if isinstance(reason, ssl.SSLCertVerificationError):
             raise RuntimeError("This computer could not verify NVIDIA's secure connection. Update WayOut's CA certificates and restart the app.") from exc
         if isinstance(reason, TimeoutError):
-            raise RuntimeError("NVIDIA did not finish reading the floor plan in time. Try again with a smaller, clear image of one floor.") from exc
+            raise RuntimeError(TOO_SLOW) from exc
         raise RuntimeError("Could not reach NVIDIA Nemotron. Check the network and try again.") from exc
     except TimeoutError as exc:
-        raise RuntimeError("NVIDIA did not finish reading the floor plan in time. Try again with a smaller, clear image of one floor.") from exc
+        raise RuntimeError(TOO_SLOW) from exc
     try:
         return json.loads(_content_from_response(result))
     except (json.JSONDecodeError, ValueError) as exc:
@@ -342,7 +386,22 @@ def _clear_exit_approaches(obstacles: List[Obstacle], exits: List[ExitDef], plan
 
 
 def parse_uploaded_plan(filename: str, content_type: str, raw: bytes) -> ImportedPlan:
-    return _building_from_json(_call_nemotron(filename, content_type, raw))
+    """Nemotron reads the plan's meaning (exit labels and sides, room names); for clean line
+    drawings WayOut then measures the actual walls, openings and rooms from the image
+    (`plan_tracing`). If the image can't be measured, Nemotron's own approximate geometry
+    is used instead, and the user is told so."""
+    data = _call_nemotron(filename, content_type, raw)
+    _, image_bytes = _decode_upload(filename, content_type, raw)
+    try:
+        traced = trace_floor_plan(image_bytes, data)
+        from simulation.navigation import Environment
+        Environment(traced.building)  # same "every area reaches an exit" check as below
+        return ImportedPlan(traced.building, traced.notes[:30], "Nemotron labels + walls measured from the drawing")
+    except (TracingFailed, ValueError) as exc:
+        plan = _building_from_json(data)
+        plan.uncertainties.insert(0, f"WayOut could not measure the walls from this image ({exc}), "
+                                     "so Nemotron's approximate geometry is used. Check walls, sizes and exits carefully.")
+        return plan
 
 
 def building_to_payload(building: Building, floor: int = 0, occupancy: int = 140):

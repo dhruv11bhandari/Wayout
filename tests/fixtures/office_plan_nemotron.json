@@ -1,0 +1,207 @@
+{
+ "width": 12,
+ "height": 8,
+ "wall_thickness": 0.2,
+ "walls": [
+  {
+   "x1": 0,
+   "y1": 0,
+   "x2": 12,
+   "y2": 0,
+   "thickness": 0.2,
+   "kind": "wall"
+  },
+  {
+   "x1": 0,
+   "y1": 8,
+   "x2": 12,
+   "y2": 8,
+   "thickness": 0.2,
+   "kind": "wall"
+  },
+  {
+   "x1": 0,
+   "y1": 0,
+   "x2": 0,
+   "y2": 8,
+   "thickness": 0.2,
+   "kind": "wall"
+  },
+  {
+   "x1": 12,
+   "y1": 0,
+   "x2": 12,
+   "y2": 8,
+   "thickness": 0.2,
+   "kind": "wall"
+  }
+ ],
+ "rooms": [
+  {
+   "id": "office2",
+   "name": "OFFICE 2",
+   "x": 0,
+   "y": 0,
+   "width": 4,
+   "height": 2
+  },
+  {
+   "id": "office1",
+   "name": "OFFICE 1",
+   "x": 0,
+   "y": 2,
+   "width": 4,
+   "height": 2
+  },
+  {
+   "id": "meeting_room",
+   "name": "MEETING ROOM",
+   "x": 5,
+   "y": 0,
+   "width": 7,
+   "height": 4
+  },
+  {
+   "id": "reception",
+   "name": "RECEPTION",
+   "x": 0,
+   "y": 4,
+   "width": 4,
+   "height": 4
+  },
+  {
+   "id": "storage",
+   "name": "STORAGE",
+   "x": 5,
+   "y": 4,
+   "width": 2,
+   "height": 2
+  },
+  {
+   "id": "lab",
+   "name": "LAB",
+   "x": 6,
+   "y": 4,
+   "width": 4,
+   "height": 4
+  }
+ ],
+ "corridors": [
+  {
+   "id": "corridor1",
+   "name": "CORRIDOR",
+   "x": 0,
+   "y": 4,
+   "width": 4,
+   "height": 0.2,
+   "kind": "corridor"
+  },
+  {
+   "id": "corridor2",
+   "name": "CORRIDOR",
+   "x": 5,
+   "y": 4,
+   "width": 7,
+   "height": 0.2,
+   "kind": "corridor"
+  },
+  {
+   "id": "corridor3",
+   "name": "CORRIDOR",
+   "x": 0,
+   "y": 0,
+   "width": 4,
+   "height": 0.2,
+   "kind": "corridor"
+  },
+  {
+   "id": "corridor4",
+   "name": "CORRIDOR",
+   "x": 5,
+   "y": 0,
+   "width": 7,
+   "height": 0.2,
+   "kind": "corridor"
+  }
+ ],
+ "doors": [
+  {
+   "id": "door1",
+   "x": 4,
+   "y": 2,
+   "width": 0.2,
+   "orientation": "v",
+   "room_id": "office1"
+  },
+  {
+   "id": "door2",
+   "x": 4,
+   "y": 4,
+   "width": 0.2,
+   "orientation": "v",
+   "room_id": "reception"
+  },
+  {
+   "id": "door3",
+   "x": 5,
+   "y": 2,
+   "width": 0.2,
+   "orientation": "v",
+   "room_id": "meeting_room"
+  },
+  {
+   "id": "door4",
+   "x": 5,
+   "y": 6,
+   "width": 0.2,
+   "orientation": "v",
+   "room_id": "storage"
+  },
+  {
+   "id": "door5",
+   "x": 6,
+   "y": 6,
+   "width": 0.2,
+   "orientation": "v",
+   "room_id": "lab"
+  }
+ ],
+ "exits": [
+  {
+   "id": "north_exit",
+   "label": "NORTH EXIT",
+   "x": 4,
+   "y": 0,
+   "width": 0.2,
+   "orientation": "N"
+  },
+  {
+   "id": "west_exit",
+   "label": "WEST EXIT",
+   "x": 0,
+   "y": 4,
+   "width": 0.2,
+   "orientation": "W"
+  },
+  {
+   "id": "east_exit",
+   "label": "EAST EXIT",
+   "x": 12,
+   "y": 4,
+   "width": 0.2,
+   "orientation": "E"
+  },
+  {
+   "id": "south_exit",
+   "label": "SOUTH EXIT",
+   "x": 4,
+   "y": 8,
+   "width": 0.2,
+   "orientation": "S"
+  }
+ ],
+ "obstacles": [],
+ "uncertainties": [
+  "The scale is not explicitly provided, so dimensions are estimated based on typical room sizes. The usable width of exits is assumed to be 0.2m based on door thickness, but actual usable width may vary."
+ ]
+}

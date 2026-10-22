@@ -190,6 +190,20 @@ export interface PredictionMulti {
   params: MultiFloorParams;
 }
 
+/** Live snapshot of a running simulation (GET /api/simulate/progress/{run_id}).
+ * Floors run top-down; `stage: 'packaging'` = physics done, the replay is being sent;
+ * `stage: 'none'` = no snapshot yet, or the result has already been sent. */
+export interface SimProgress {
+  stage: 'none' | 'simulating' | 'packaging';
+  floor?: number;
+  floors_done?: number;
+  n_floors?: number;
+  sim_time?: number;
+  evacuated?: number;
+  floor_total?: number;
+  wall_time_s?: number;
+}
+
 // ---------------------------------------------------------------- layout optimizer
 export type WidthField = 'corridor_width' | 'exit_width' | 'stair_width';
 export const WIDTH_FIELDS: WidthField[] = ['corridor_width', 'exit_width', 'stair_width'];

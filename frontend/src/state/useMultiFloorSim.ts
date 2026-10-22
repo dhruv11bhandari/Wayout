@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { Trajectory, usePlayback } from '../utils/playback';
+import { sleep } from '../utils/format';
 import { DEFAULT_MULTI_PARAMS, WIDTH_FIELDS } from '../types';
 import type {
   MultiFloorBuilding, MultiFloorParams, MultiFloorResult, OptimizationResult, PredictionMulti, Recommendation,
-  RuntimeConfig, Status,
+  RuntimeConfig, SimProgress, Status,
 } from '../types';
 
 export interface Baseline { params: MultiFloorParams; result: MultiFloorResult }
@@ -48,6 +49,8 @@ export function useMultiFloorSim() {
   const [trajectories, setTrajectories] = useState<(Trajectory | null)[]>([]);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Live snapshot of the simulation currently running (null when idle / before the first one).
+  const [progress, setProgress] = useState<SimProgress | null>(null);
 
   const [baseline, setBaseline] = useState<Baseline | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -170,6 +173,32 @@ export function useMultiFloorSim() {
     setStatus('done');
   }, [playback]);
 
+  /** Start a simulation with a fresh run id and poll its live progress until it returns. */
+  const withProgress = useCallback(async <T,>(start: (runId: string) => Promise<T>): Promise<T> => {
+    const runId = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    let alive = true;
+    setProgress(null);
+    void (async () => {
+      let seen = false;
+      while (alive) {
+        try {
+          const p = await api.simProgress(runId);
+          if (!alive) break;
+          if (p.stage !== 'none') { seen = true; setProgress(p); }
+          // Server already sent the result; the browser is still downloading the replay.
+          else if (seen) setProgress((prev) => (prev ? { ...prev, stage: 'packaging' } : prev));
+        } catch { /* progress is best-effort; the run itself reports errors */ }
+        await sleep(400);
+      }
+    })();
+    try {
+      return await start(runId);
+    } finally {
+      alive = false;
+      setProgress(null);
+    }
+  }, []);
+
   const run = useCallback(async () => {
     setStatus('running');
     setError(null);
@@ -179,28 +208,29 @@ export function useMultiFloorSim() {
       clearOptimization();
     }
     try {
-      const r = await api.simulateMulti(paramsRef.current, true);
+      const r = await withProgress((id) => api.simulateMulti(paramsRef.current, true, id));
       applyResult(r);
       setBaseline((b) => b ?? { params: paramsRef.current, result: r });
     } catch (e: any) {
       setError(e?.message ?? 'Simulation failed.');
       setStatus('error');
     }
-  }, [applyResult, optimization, clearOptimization]);
+  }, [applyResult, optimization, clearOptimization, withProgress]);
 
   const runImported = useCallback(async (designId: string, occupancy: number, agentSpeed: number, seed: number) => {
     setStatus('running');
     setError(null);
     setRecommendations([]);
     try {
-      const r = await api.simulateDesign(designId, Math.max(10, Math.min(400, Math.round(occupancy))), agentSpeed, seed);
+      const occ = Math.max(10, Math.min(400, Math.round(occupancy)));
+      const r = await withProgress((id) => api.simulateDesign(designId, occ, agentSpeed, seed, id));
       applyResult(r);
       setBaseline(null);
     } catch (e: any) {
       setError(e?.message ?? 'Could not simulate this uploaded design.');
       setStatus('error');
     }
-  }, [applyResult]);
+  }, [applyResult, withProgress]);
 
   const pinBaseline = useCallback(() => {
     if (result) setBaseline({ params: paramsRef.current, result });
@@ -236,14 +266,14 @@ export function useMultiFloorSim() {
     setStatus('running');
     setError(null);
     try {
-      const r = await api.simulateMulti(next, true);
+      const r = await withProgress((id) => api.simulateMulti(next, true, id));
       applyResult(r);
       setRecommendations([]);
     } catch (e: any) {
       setError(e?.message ?? 'Simulation failed.');
       setStatus('error');
     }
-  }, [applyResult]);
+  }, [applyResult, withProgress]);
 
   const optimize = useCallback(async () => {
     const requested = paramsRef.current;
@@ -277,6 +307,7 @@ export function useMultiFloorSim() {
     && designKey(params) === designKey(applyOptimizedWidths(params, optimization));
 
   return {
+    progress,
     health, config, params, updateParams, setFloorCount, setTotalOccupancy, toggleBlockedExit, toggleBlockedStair,
     setBuildingOverride,
     building: buildingOverride ?? building, buildingLoading, prediction, predictionLoading, result, trajectories, status, error, run,

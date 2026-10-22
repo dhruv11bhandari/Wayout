@@ -56,6 +56,7 @@ class AppState:
         self.last_simulation: Optional[Dict[str, Any]] = None
         self.last_multi_floor: Optional[Dict[str, Any]] = None
         self.multi_floor_cache: Dict[str, Dict[str, Any]] = {}
+        self.progress: Dict[str, Dict[str, Any]] = {}  # run_id -> latest live snapshot of a running simulation
         self.counters = {"simulations": 0, "predictions": 0, "multi_floor_simulations": 0, "optimizations": 0}
         self.lock = threading.Lock()
 

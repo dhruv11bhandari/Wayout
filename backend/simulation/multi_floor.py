@@ -39,7 +39,7 @@ on it. Queuing AT a stair entrance (on the floor the agent is leaving) is real.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from building import BuildingParams
 from .simulator import LocalSimulationEngine, ScheduledAgent, SimConfig
@@ -143,11 +143,16 @@ def stair_landing_points(mfp: MultiFloorParams) -> Dict[str, Tuple[float, float]
     return {"A": (lx, cy - 0.15 * H), "B": (lx, cy + 0.15 * H)}
 
 
-def simulate_building(mfp: MultiFloorParams, config: Optional[SimConfig] = None) -> Dict[str, Any]:
+def simulate_building(mfp: MultiFloorParams, config: Optional[SimConfig] = None,
+                      progress: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
     """Run every floor, top to bottom, chaining stairwell arrivals. Returns per-floor
     results plus whole-building metrics. Every number comes from a real
     `LocalSimulationEngine.simulate()` call - see the module docstring for how floors
-    connect and what is (and is not) modelled between them."""
+    connect and what is (and is not) modelled between them.
+
+    `progress`, if given, receives live snapshots - {floor, floors_done, n_floors,
+    sim_time, evacuated, floor_total} - when each floor starts and about once per
+    simulated second while it runs. It only observes; results are identical without it."""
     mfp = mfp.normalized()
     cfg = config or SimConfig()
     engine = LocalSimulationEngine()
@@ -158,13 +163,25 @@ def simulate_building(mfp: MultiFloorParams, config: Optional[SimConfig] = None)
     results: List[Optional[Dict[str, Any]]] = [None] * n
     pending: List[List[ScheduledAgent]] = [[] for _ in range(n)]
 
+    def floor_reporter(i: int) -> Optional[Callable[[float, int, int], None]]:
+        if progress is None:
+            return None
+        done_before = n - 1 - i  # floors are simulated top-down
+        return lambda t, out, total: progress({
+            "floor": i, "floors_done": done_before, "n_floors": n,
+            "sim_time": round(float(t), 1), "evacuated": int(out), "floor_total": int(total),
+        })
+
     for i in range(n - 1, -1, -1):
+        report = floor_reporter(i)
+        if report is not None:
+            report(0.0, 0, floor_params[i].occupancy + len(pending[i]))
         floor_cfg = SimConfig(
             dt=cfg.dt, max_time=cfg.max_time, record=cfg.record, record_dt=cfg.record_dt,
             density_dt=cfg.density_dt, max_reaction_delay=cfg.max_reaction_delay,
             dynamic_exit_choice=cfg.dynamic_exit_choice, reassess_dt=cfg.reassess_dt,
             switch_margin_s=cfg.switch_margin_s, seed=None, extra_agents=pending[i],
-            label_prefix=("Exit" if i == 0 else "Stair"),
+            label_prefix=("Exit" if i == 0 else "Stair"), on_progress=report,
         )
         r = engine.simulate(floor_params[i], floor_cfg)
         results[i] = r

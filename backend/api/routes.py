@@ -6,7 +6,8 @@ import time
 from dataclasses import replace
 from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Query, Response, UploadFile
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 import services
@@ -21,6 +22,7 @@ from simulation.navigation import get_environment
 router = APIRouter()
 VERSION = "0.2.0"
 _uploaded_designs: Dict[str, Any] = {}
+RUN_ID = r"^[A-Za-z0-9_-]{1,64}$"  # client-chosen id for polling GET /simulate/progress/{run_id}
 
 
 class ImportedSimulationIn(BaseModel):
@@ -29,6 +31,7 @@ class ImportedSimulationIn(BaseModel):
     agent_speed: float = Field(1.3, ge=0.5, le=2.0)
     seed: int = 42
     record: bool = True
+    run_id: Optional[str] = Field(None, pattern=RUN_ID)
 
 
 class ParamsIn(BaseModel):
@@ -81,6 +84,7 @@ class MultiFloorParamsIn(BaseModel):
 
 class SimulateMultiIn(MultiFloorParamsIn):
     record: bool = True
+    run_id: Optional[str] = Field(None, pattern=RUN_ID)
 
 
 class RecommendIn(BaseModel):
@@ -113,6 +117,32 @@ def _key(p: BuildingParams) -> str:
 
 def _mkey(mfp: MultiFloorParams) -> str:
     return json.dumps(mfp.to_dict(), sort_keys=True)
+
+
+def _progress_reporter(run_id: Optional[str]):
+    """Live-progress sink for one run (None when the client didn't ask for progress)."""
+    if not run_id:
+        return None
+    started = time.perf_counter()
+
+    def report(snapshot: Dict[str, Any]) -> None:
+        with services.state.lock:
+            services.state.progress[run_id] = {
+                **snapshot, "stage": "simulating", "wall_time_s": round(time.perf_counter() - started, 1)}
+    return report
+
+
+def _progress_stage(run_id: Optional[str], stage: str) -> None:
+    if run_id:
+        with services.state.lock:
+            if run_id in services.state.progress:
+                services.state.progress[run_id]["stage"] = stage
+
+
+def _progress_clear(run_id: Optional[str]) -> None:
+    if run_id:
+        with services.state.lock:
+            services.state.progress.pop(run_id, None)
 
 
 def _json(payload: Any) -> Response:
@@ -178,7 +208,9 @@ async def parse_design(file: UploadFile = File(...)):
 
     raw = await file.read(20 * 1024 * 1024 + 1)
     try:
-        plan = parse_uploaded_plan(file.filename or "floor-plan", file.content_type or "", raw)
+        # The NVIDIA call can take minutes when their service is busy; run it off the event
+        # loop so the rest of the API (health checks, simulations) keeps responding meanwhile.
+        plan = await run_in_threadpool(parse_uploaded_plan, file.filename or "floor-plan", file.content_type or "", raw)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     except RuntimeError as exc:
@@ -193,16 +225,27 @@ async def parse_design(file: UploadFile = File(...)):
 
 
 @router.post("/design/simulate")
-def simulate_design(req: ImportedSimulationIn):
+def simulate_design(req: ImportedSimulationIn, background: BackgroundTasks):
     building = _uploaded_designs.get(req.design_id)
     if building is None:
         raise HTTPException(404, "This uploaded design has expired. Upload it again.")
     p = BuildingParams(occupancy=req.occupancy, agent_speed=req.agent_speed, seed=req.seed,
                        num_exits=min(4, max(1, len(building.exits)))).normalized()
+    report = _progress_reporter(req.run_id)
+    on_progress = None if report is None else (lambda t, out, total: report({
+        "floor": 0, "floors_done": 0, "n_floors": 1, "sim_time": round(float(t), 1),
+        "evacuated": int(out), "floor_total": int(total)}))
     try:
-        result = services.engine.simulate(p, SimConfig(record=req.record), building_override=building)
+        result = services.engine.simulate(p, SimConfig(record=req.record, on_progress=on_progress),
+                                          building_override=building)
     except (ValueError, IndexError) as exc:
+        _progress_clear(req.run_id)
         raise HTTPException(422, f"This extracted floor plan cannot be simulated: {exc}") from exc
+    except Exception:
+        _progress_clear(req.run_id)
+        raise
+    _progress_stage(req.run_id, "packaging")
+    background.add_task(_progress_clear, req.run_id)
     return _json({
         "params": {"n_floors": 1, "occupancy": [req.occupancy], "floor_height": 3.5,
                    "corridor_width": p.corridor_width, "exit_width": p.exit_width, "stair_width": 1.5,
@@ -281,15 +324,31 @@ def simulate(req: SimulateIn):
 
 
 @router.post("/simulate/multi")
-def simulate_multi(req: SimulateMultiIn):
+def simulate_multi(req: SimulateMultiIn, background: BackgroundTasks):
     mfp = req.to_params()
-    result = simulate_building(mfp, SimConfig(record=req.record))
+    try:
+        result = simulate_building(mfp, SimConfig(record=req.record), progress=_progress_reporter(req.run_id))
+    except Exception:
+        _progress_clear(req.run_id)
+        raise
+    _progress_stage(req.run_id, "packaging")  # serialising + sending the replay can take a few seconds
+    background.add_task(_progress_clear, req.run_id)
     summary = services.summarize_multi(result)
     with services.state.lock:
         services.state.multi_floor_cache[_mkey(mfp)] = summary
         services.state.last_multi_floor = summary
         services.state.counters["multi_floor_simulations"] += 1
     return _json(result)
+
+
+@router.get("/simulate/progress/{run_id}")
+def simulate_progress(run_id: str) -> Dict[str, Any]:
+    """Latest live snapshot of a running simulation started with this `run_id`:
+    {stage, floor, floors_done, n_floors, sim_time, evacuated, floor_total, wall_time_s}.
+    `{"stage": "none"}` before the first snapshot and once the result has been sent."""
+    with services.state.lock:
+        snap = services.state.progress.get(run_id)
+    return dict(snap) if snap is not None else {"stage": "none"}
 
 
 @router.post("/recommend")
