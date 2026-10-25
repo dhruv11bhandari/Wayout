@@ -314,6 +314,9 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   } = sim;
 
   const [startChoice, setStartChoice] = useState<'choose' | 'demo' | 'upload'>('choose');
+  const [demoPreviewState, setDemoPreviewState] = useState<'idle' | 'playing' | 'paused' | 'finished'>('idle');
+  const [demoPreviewReplay, setDemoPreviewReplay] = useState(0);
+  const demoPreviewRemaining = useRef(4000);
   const [uploadedDesign, setUploadedDesign] = useState<ImportedDesign | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -323,6 +326,33 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   const [uploadElapsed, setUploadElapsed] = useState(0);
   const uploadAbort = useRef<{ controller: AbortController; reason: 'cancel' | 'timeout' | null } | null>(null);
   const resultSections = uploadedDesign ? SECTIONS.slice(0, 2) : SECTIONS;
+
+  useEffect(() => {
+    if (demoPreviewState !== 'playing') return;
+    const beganAt = performance.now();
+    const timer = window.setTimeout(() => {
+      setDemoPreviewState('finished');
+    }, demoPreviewRemaining.current);
+    return () => {
+      window.clearTimeout(timer);
+      demoPreviewRemaining.current = Math.max(0, demoPreviewRemaining.current - (performance.now() - beganAt));
+    };
+  }, [demoPreviewState, demoPreviewReplay]);
+
+  const toggleDemoPreview = () => {
+    if (demoPreviewState === 'playing') {
+      setDemoPreviewState('paused');
+    } else if (demoPreviewState === 'paused') {
+      setDemoPreviewState('playing');
+    } else if (demoPreviewState === 'finished') {
+      demoPreviewRemaining.current = 4000;
+      setDemoPreviewReplay((runId) => runId + 1);
+      setDemoPreviewState('playing');
+    } else {
+      demoPreviewRemaining.current = 4000;
+      setDemoPreviewState('playing');
+    }
+  };
 
   const [view, setView] = useState<ViewMode>('3d');
   const [camPreset, setCamPreset] = useState<CameraPresetT>('iso');
@@ -575,64 +605,164 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
 
   if (startChoice === 'choose' || (startChoice === 'upload' && !uploadedDesign)) {
     return (
-      <div className="simulator">
-        <header className="header">
-          <button className="brand" onClick={() => onNavigate('home')} aria-label="Wayout home"><span className="brand-mark" /><span className="brand-name">WAYOUT</span></button>
-          <div className="header-right"><button className="btn ghost small" onClick={() => onNavigate('home')}>Home</button></div>
+      <div className="simulator wayout-simulator-entry">
+        <header className="wy-entry-header">
+          <button className="wy-entry-brand" onClick={() => onNavigate('home')} aria-label="Wayout home">WAYOUT</button>
+          <div className="wy-entry-head-main"><span className="wy-ready"><i /> SYSTEM READY</span><button className="wy-entry-home" onClick={() => onNavigate('home')}>Home</button></div>
         </header>
-        <main className="wy-start-flow">
-          <div className="wy-start-kicker">EVACUATION SIMULATOR</div>
-          <h1>{startChoice === 'choose' ? 'Choose how to begin' : 'Upload your floor plan'}</h1>
-          <p className="wy-start-intro">Run the demo building or let Nemotron read a floor plan and prepare it for simulation.</p>
-          {startChoice === 'choose' ? (
-            <div className="wy-choice-grid">
-              <button className="wy-choice-card" onClick={selectDemo}>
-                <span className="wy-choice-number">01</span><strong>Demo run</strong>
-                <span>Open the ready-made three-floor building and run the simulator as usual.</span>
-                <b>Use demo building →</b>
-              </button>
-              <button className="wy-choice-card" onClick={() => setStartChoice('upload')}>
-                <span className="wy-choice-number">02</span><strong>Upload your design</strong>
-                <span>Use a floor-plan image or one-page PDF to create a building for evacuation analysis.</span>
-                <b>Upload a design →</b>
-              </button>
-            </div>
-          ) : (
-            <div className="wy-upload-card">
-              <button className="btn ghost small" onClick={() => { setStartChoice('choose'); setUploadError(null); }}>← Back</button>
-              <label className="wy-drop-area">
-                <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf,.png,.jpg,.jpeg,.webp,.pdf"
-                  disabled={uploadBusy} onChange={(e) => { void handleUpload(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }} />
-                <span className="wy-upload-icon">↑</span>
-                <strong>{uploadBusy ? 'Reading your floor plan…' : 'Choose a floor plan'}</strong>
-                <span>
-                  {uploadBusy
-                    ? `Nemotron is reading the drawing · ${fmtClock(uploadElapsed)} · usually under a minute`
-                    : 'PNG, JPG, WEBP, or a single-page PDF · up to 20 MB'}
-                </span>
-              </label>
-              {uploadBusy && (
-                <div className="wy-upload-wait">
-                  {uploadElapsed >= 60 && (
-                    <span>NVIDIA's free service seems busy. WayOut will stop waiting after 3 minutes, or you can cancel now.</span>
-                  )}
-                  <button className="btn ghost small" type="button" onClick={cancelUpload}>Cancel</button>
-                </div>
-              )}
-              <p className="wy-upload-note">Nemotron will identify marked exits and draft connected rooms, doors, and walls. Exits appear as green markers. Review the extracted plan before simulation; image-based measurements may need correction.</p>
-              {uploadError && (
-                <div className="wy-upload-error" role="alert">
-                  <span>{uploadError}</span>
-                  {lastUploadFile && lastUploadFile.size <= 20 * 1024 * 1024 && (
-                    <button className="btn ghost small" type="button" disabled={uploadBusy} onClick={() => { void handleUpload(lastUploadFile); }}>
-                      {uploadBusy ? 'Trying again…' : 'Try again'}
+        <div className="wy-entry-layout">
+          <aside className="wy-blueprint-rail" aria-hidden="true">
+            <div className="wy-rail-coords">E:6023120°<br />N:1293</div>
+            <svg className="wy-rail-plan" viewBox="0 0 260 900" preserveAspectRatio="xMidYMid meet">
+              <g className="wy-plan-lines" transform="translate(0 28) scale(1 1.3)" fill="none" stroke="currentColor" strokeWidth="1" strokeLinejoin="miter">
+                <path className="wy-plan-outer" d="M35 132H235V292M235 322V665H203M179 665H35V322M35 292V132z" />
+                <path className="wy-plan-inner" d="M41 138H229V298M229 316V659H203M179 659H41V316M41 298V138z" />
+                <path className="wy-grid-axis" d="M59 106v26m58-26v26m58-26v26m58-26v26M35 106h200m-200-4v8m58-8v8m58-8v8m58-8v8m58-8v8" />
+                <path d="M47 254h142m24 0h8M47 326h77m22 0h76M47 472h77m22 0h76M47 526h77m22 0h36m22 0h14M105 144v110m0 72v110m0 36v110m58-438v110m0 72v110m0 36v110m58-432v110m0 72v110m0 36v110" />
+                <path className="wy-door-arcs" d="M105 254h18m-18 0a18 18 0 0 1 18 18m40 54h18m-18 0a18 18 0 0 0 18 18m-76 92h18m-18 0a18 18 0 0 1 18 18m40 36h18m-18 0a18 18 0 0 0 18 18M41 402h16m-16 0a16 16 0 0 1 16 16M229 254h-16m16 0a16 16 0 0 0-16 16M177 659v-18m0 18a18 18 0 0 0 18-18" />
+                <path className="wy-detail" d="M50 149h46m-46 4h46m-46 92h46m-46-6h46M112 149h46m-46 4h46m-46 92h46m-46-6h46M170 149h46m-46 4h46m-46 92h46m-46-6h46M50 342h46m-46 4h46m66-4h46m-46 4h46M50 433h46m-46 4h46m66-4h46m-46 4h46M50 544h46m-46 4h46m-46 99h46m-46-6h46m66 6h46m-46-6h46" />
+                <path className="wy-core" d="M49 354h49v93H49zM112 359h42v70h-42zM170 544h46v98h-46z" />
+                <path className="wy-stairs" d="M53 363h41m-41 7h41m-41 7h41m-41 7h41m-41 7h41m-41 7h41m-41 7h41m-41 7h41m-41 7h41m-41 7h41m-41 7h41M175 552h36m-36 7h36m-36 7h36m-36 7h36m-36 7h36m-36 7h36m-36 7h36m-36 7h36m-36 7h36m-36 7h36m-36 7h36" />
+                <path className="wy-lift" d="m117 364 32 60m-32 0 32-60" />
+                <path className="wy-dims" d="M41 122h188m-188-3v6m58-6v6m58-6v6m58-6v6m-188 562V138m-4 0h8m-8 72h8m-8 72h8m-8 72h8m-8 72h8m-8 72h8m-8 54h8m-8 72h8" />
+                <path className="wy-dim-scan" d="M41 122H229" />
+                <path className="wy-route-base" d="M135 307H35M135 307H235M135 307v203h59v155" />
+                <path className="wy-route wy-route-west" d="M135 307H35" />
+                <path className="wy-route wy-route-alt" d="M135 307H235" />
+                <path className="wy-route wy-route-south" d="M135 307v203h59v155" />
+                <path className="wy-route-pulse wy-route-west" d="M135 307H35" />
+                <path className="wy-route-pulse wy-route-east-pulse" d="M135 307H235" />
+                <path className="wy-route-pulse wy-route-south-pulse" d="M135 307v203h59v155" />
+                <path className="wy-route-arrow" d="m41 302-6 5 6 5" />
+                <path className="wy-route-arrow wy-route-arrow-east" d="m229 302 6 5-6 5" />
+                <path className="wy-route-arrow wy-route-arrow-south" d="m188 655 6 7 6-7" />
+              </g>
+              <g className="wy-plan-text" transform="translate(0 28) scale(1 1.3)">
+                <text x="65" y="184">OFFICE 01</text><text x="122" y="184">OFFICE 02</text><text x="180" y="184">OFFICE 03</text>
+                <text x="63" y="226">ROOM 04</text><text x="177" y="226">ROOM 05</text><text x="63" y="394">STAIR</text>
+                <text x="116" y="400">LIFT</text><text x="173" y="590">STAIR 02</text><text x="166" y="504">CORRIDOR</text>
+                <text x="66" y="99">6000</text><text x="124" y="99">6000</text><text x="182" y="99">6000</text>
+                <text x="19" y="410" transform="rotate(-90 19 410)">WAYOUT · LEVEL 01</text>
+              </g>
+              <g className="wy-plan-grid-labels" transform="translate(0 28) scale(1 1.3)">
+                <circle cx="59" cy="91" r="8"/><circle cx="117" cy="91" r="8"/><circle cx="175" cy="91" r="8"/><circle cx="233" cy="91" r="8"/>
+                <text x="59" y="93.5">1</text><text x="117" y="93.5">2</text><text x="175" y="93.5">3</text><text x="233" y="93.5">4</text>
+                <circle cx="22" cy="180" r="8"/><circle cx="22" cy="254" r="8"/><circle cx="22" cy="326" r="8"/><circle cx="22" cy="400" r="8"/><circle cx="22" cy="472" r="8"/><circle cx="22" cy="546" r="8"/><circle cx="22" cy="620" r="8"/>
+                <text x="22" y="182.5">A</text><text x="22" y="256.5">B</text><text x="22" y="328.5">C</text><text x="22" y="402.5">D</text><text x="22" y="474.5">E</text><text x="22" y="548.5">F</text><text x="22" y="622.5">G</text>
+                <path d="M9 138v521m-3-521h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6m-6 20h6"/>
+              </g>
+            </svg>
+          </aside>
+          <main className="wy-entry-main">
+            <svg className="wayout-live-motion" viewBox="0 0 1000 800" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <g className="wayout-live-bases">
+                <path d="M0 105H120V150H230V190" />
+                <path d="M1000 92H890V128H800V190" />
+                <path d="M0 286H95V330H168V380H222" />
+                <path d="M1000 302H925V350H852V405H790" />
+                <path d="M84 420V500H150V555H226" />
+                <path d="M930 440V495H858V540H786" />
+                <path d="M0 640H86V598H168V570H230" />
+                <path d="M1000 625H918V588H840V560H780" />
+                <path d="M340 42V92H410V120H470" />
+                <path d="M650 48V112H700V160H748" />
+              </g>
+              <g className="wayout-live-signals">
+                <path className="wayout-live-signal wayout-live-a" pathLength="100" d="M0 105H120V150H230V190" />
+                <path className="wayout-live-signal wayout-live-b" pathLength="100" d="M1000 92H890V128H800V190" />
+                <path className="wayout-live-signal wayout-live-c" pathLength="100" d="M0 286H95V330H168V380H222" />
+                <path className="wayout-live-signal wayout-live-d" pathLength="100" d="M1000 302H925V350H852V405H790" />
+                <path className="wayout-live-signal wayout-live-e" pathLength="100" d="M84 420V500H150V555H226" />
+                <path className="wayout-live-signal wayout-live-f" pathLength="100" d="M930 440V495H858V540H786" />
+                <path className="wayout-live-signal wayout-live-g" pathLength="100" d="M0 640H86V598H168V570H230" />
+                <path className="wayout-live-signal wayout-live-h" pathLength="100" d="M1000 625H918V588H840V560H780" />
+                <path className="wayout-live-signal wayout-live-i" pathLength="100" d="M340 42V92H410V120H470" />
+                <path className="wayout-live-signal wayout-live-j" pathLength="100" d="M650 48V112H700V160H748" />
+                <path className="wayout-live-pulse wayout-live-pulse-b" pathLength="100" d="M1000 92H890V128H800V190" />
+                <path className="wayout-live-pulse wayout-live-pulse-d" pathLength="100" d="M1000 302H925V350H852V405H790" />
+                <path className="wayout-live-pulse wayout-live-pulse-e" pathLength="100" d="M84 420V500H150V555H226" />
+                <path className="wayout-live-pulse wayout-live-pulse-h" pathLength="100" d="M1000 625H918V588H840V560H780" />
+              </g>
+            </svg>
+            <div className="wy-entry-coordinates" aria-hidden="true">C:200<br />-5.0796</div>
+            <div className="wy-entry-bottom-scale" aria-hidden="true" />
+            <div className="wy-entry-content">
+              <h1>Build the scenario.</h1>
+              <p className="wy-entry-intro">Configure the simulation parameters for evacuation analysis.</p>
+              <div className="wy-steps" aria-label="Building selection, set conditions, run simulation">
+                <div className="wy-step active"><b>01</b><span>SELECT BUILDING</span></div><i />
+                <div className="wy-step"><b>02</b><span>SET CONDITIONS</span></div><i />
+                <div className="wy-step"><b>03</b><span>RUN SIMULATION</span></div>
+              </div>
+              <div className="wy-entry-cards">
+                <div
+                  className={`wy-entry-card wy-demo-card${demoPreviewState !== 'idle' ? ' has-preview-run' : ''}${demoPreviewState === 'playing' ? ' is-playing' : ''}${demoPreviewState === 'paused' ? ' is-paused' : ''}${demoPreviewState === 'finished' ? ' is-complete' : ''}`}
+                  role="group"
+                  tabIndex={0}
+                  aria-label="Demo building. Press Enter or Space to open."
+                  onClick={selectDemo}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      selectDemo();
+                    }
+                  }}
+                >
+                <span className="wy-demo-preview">
+                    <svg key={demoPreviewReplay} viewBox="0 0 500 300" aria-hidden="true" focusable="false">
+                      <rect x="34" y="26" width="432" height="248" fill="#f2f1ed" />
+                      <g className="wy-demo-walls" fill="none" stroke="#292c2b" strokeWidth="4.5" strokeLinejoin="miter">
+                        <path d="M76 62h166m16 0h166v86m0 20v72H258m-16 0H76v-72m0-20V62" />
+                        <path d="M170 62v74m0 44v60m170-178v74m0 44v60M76 136h66m18 0h72m36 0h32m18 0h32m18 0h48M76 180h66m18 0h72m36 0h32m18 0h32m18 0h48" />
+                        <path d="M242 62v74m16-74v74m-16 44v60m16-60v60" strokeWidth="2" />
+                      </g>
+                      <g className="wy-demo-details" fill="none" stroke="#555a58" strokeWidth="1.2">
+                        <path d="M242 62v-18a8 8 0 0 1 16 0v18M242 240v-18a8 8 0 0 1 16 0v18" />
+                        <path d="M142 136h18m-18 0a18 18 0 0 0 18 18m148-18h18m-18 0a18 18 0 0 1 18 18M142 180h18m-18 0a18 18 0 0 1 18-18m148 18h18m-18 0a18 18 0 0 0 18-18" />
+                        <path d="M247 78v50m-8-42h16m-16 8h16m-16 8h16m-16 8h16m-16 8h16M247 194v34m-8-25h16m-16 8h16m-16 8h16" />
+                      </g>
+                      <g className="wy-demo-labels"><text x="103" y="105">ROOM 01</text><text x="187" y="105">ROOM 02</text><text x="294" y="105">ROOM 03</text><text x="365" y="105">ROOM 04</text><text x="103" y="216">ROOM 05</text><text x="294" y="216">ROOM 06</text><text x="365" y="216">ROOM 07</text></g>
+                      <path className="wy-demo-route-base" d="M250 158H76M250 158H424M250 158V62M250 158V240" />
+                      <path className="wy-demo-signal wy-demo-west" d="M250 158H76" />
+                      <path className="wy-demo-signal wy-demo-east" d="M250 158H424" />
+                      <path className="wy-demo-signal wy-demo-north" d="M250 158V62" />
+                      <path className="wy-demo-signal wy-demo-south" d="M250 158V240" />
+                      <path className="wy-demo-pulse wy-demo-west" d="M250 158H76" />
+                      <path className="wy-demo-pulse wy-demo-east" d="M250 158H424" />
+                      <path className="wy-demo-pulse wy-demo-north" d="M250 158V62" />
+                      <path className="wy-demo-pulse wy-demo-south" d="M250 158V240" />
+                      <path className="wy-demo-arrow wy-demo-west" d="m84 152-8 6 8 6" />
+                      <path className="wy-demo-arrow wy-demo-east" d="m416 152 8 6-8 6" />
+                      <path className="wy-demo-arrow wy-demo-north" d="m244 70 6-8 6 8" />
+                      <path className="wy-demo-arrow wy-demo-south" d="m244 232 6 8 6-8" />
+                    </svg>
+                    <button className={`wy-play${demoPreviewState === 'playing' ? ' is-playing' : ''}${demoPreviewState === 'finished' ? ' is-complete' : ''}`} type="button" onClick={(event) => { event.stopPropagation(); toggleDemoPreview(); }} aria-label={demoPreviewState === 'playing' ? 'Pause evacuation preview' : demoPreviewState === 'paused' ? 'Resume evacuation preview' : demoPreviewState === 'finished' ? 'Replay evacuation preview' : 'Play evacuation preview'}>
+                      <span className="wy-play-icon" aria-hidden="true">{demoPreviewState === 'finished' ? '↻' : ''}</span>
                     </button>
-                  )}
+                  </span>
+                  <span className="wy-entry-card-title">Demo building</span>
+                  <span className="wy-entry-card-action wy-demo-open">Open demo building <b>→</b></span>
                 </div>
-              )}
+                <label className={`wy-entry-card wy-upload-entry${uploadBusy ? ' is-busy' : ''}`} onClick={() => { if (!uploadBusy) setStartChoice('upload'); }} onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('is-dragging'); }} onDragLeave={(e) => e.currentTarget.classList.remove('is-dragging')} onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('is-dragging'); if (!uploadBusy) { setStartChoice('upload'); void handleUpload(e.dataTransfer.files?.[0]); } }}>
+                  <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf,.png,.jpg,.jpeg,.webp,.pdf" disabled={uploadBusy} onChange={(e) => { void handleUpload(e.currentTarget.files?.[0]); e.currentTarget.value = ''; }} />
+                  <span className="wy-upload-preview" aria-hidden="true">
+                    <span className="wy-corner tl" /><span className="wy-corner tr" /><span className="wy-corner bl" /><span className="wy-corner br" />
+                    <svg viewBox="0 0 500 280"><g fill="none" stroke="currentColor"><path d="M104 44h205l54 48v143H104z M117 56h184v48h49v119H117z M140 75v126h54m0-126h68v54h58M140 112h54v44h70v45m0-99v54h52m-122 0v45m70-45h52" /><path d="M309 44v48h54" /></g></svg>
+                    <span className="wy-upload-beam" />
+                    <svg className="wy-document" viewBox="0 0 48 58"><path d="M8 2h22l12 12v40H8z M30 2v13h12M15 29h20M15 37h20M15 45h14" /></svg>
+                    <span className="wy-upload-pointer">↖</span>
+                  </span>
+                  <span className="wy-entry-card-title">{uploadBusy ? 'Reading your design…' : 'Upload your design'}</span>
+                  <span className="wy-entry-card-sub">{uploadBusy ? `Nemotron is reading · ${fmtClock(uploadElapsed)}` : 'Supported: PDF, PNG, JPG, WEBP'}</span>
+                  <span className="wy-entry-card-action">{uploadBusy ? 'Please wait' : 'Choose or drop a floor plan'} <b>↑</b></span>
+                </label>
+              </div>
+              {startChoice === 'upload' && <div className="wy-entry-upload-state">{uploadBusy && <div className="wy-upload-wait">{uploadElapsed >= 60 && <span>NVIDIA's free service seems busy. WayOut will stop waiting after 3 minutes, or you can cancel now.</span>}<button className="btn ghost small" type="button" onClick={cancelUpload}>Cancel</button></div>}<p>Nemotron will identify marked exits and draft connected rooms, doors, and walls. Review the extracted plan before simulation.</p>{uploadError && <div className="wy-upload-error" role="alert"><span>{uploadError}</span>{lastUploadFile && lastUploadFile.size <= 20 * 1024 * 1024 && <button className="btn ghost small" type="button" disabled={uploadBusy} onClick={() => { void handleUpload(lastUploadFile); }}>{uploadBusy ? 'Trying again…' : 'Try again'}</button>}</div>}</div>}
             </div>
-          )}
-        </main>
+            <div className="wy-entry-right-coords" aria-hidden="true">S:1230<br />53.390</div>
+          </main>
+        </div>
       </div>
     );
   }
