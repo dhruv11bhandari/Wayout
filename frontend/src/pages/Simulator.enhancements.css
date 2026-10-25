@@ -24,22 +24,6 @@
   --wy-sticky-top: 0px;
 }
 
-.wy-start-flow { width: min(900px, calc(100% - 40px)); margin: clamp(48px, 10vh, 110px) auto 80px; }
-.wy-start-kicker { color: var(--dim); font: 600 11px/1.4 var(--font-mono, monospace); letter-spacing: .14em; }
-.wy-start-flow h1 { margin: 14px 0 10px; font-size: clamp(32px, 5vw, 54px); letter-spacing: -.04em; }
-.wy-start-intro { max-width: 620px; color: var(--dim); line-height: 1.6; }
-.wy-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 36px; }
-.wy-choice-card { min-height: 245px; padding: 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; text-align: left; color: var(--ink); background: #101012; border: 1px solid var(--line-strong); border-radius: 14px; cursor: pointer; transition: border-color .15s, transform .15s, background .15s; }
-.wy-choice-card:hover { border-color: var(--ink); background: #151518; transform: translateY(-2px); }
-.wy-choice-card strong { font-size: 21px; }
-.wy-choice-card > span:not(.wy-choice-number) { color: var(--dim); line-height: 1.55; }
-.wy-choice-card b { margin-top: auto; font-size: 13px; }
-.wy-choice-number { color: var(--dim); font: 12px/1 var(--font-mono, monospace); }
-.wy-upload-card { max-width: 680px; padding: 20px; margin-top: 28px; background: #101012; border: 1px solid var(--line-strong); border-radius: 14px; }
-.wy-drop-area { min-height: 210px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; border: 1px dashed rgba(255,255,255,.3); border-radius: 10px; text-align: center; cursor: pointer; }
-.wy-drop-area:hover { border-color: var(--ink); }
-.wy-drop-area input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.wy-drop-area strong { font-size: 18px; }
 .wy-drop-area > span:last-child, .wy-upload-note { color: var(--dim); font-size: 13px; line-height: 1.6; }
 .wy-upload-icon { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; font-size: 22px; }
 .wy-upload-note { margin: 16px 4px 0; }
@@ -1097,4 +1081,704 @@
   .simulator .wy-gauge-fill,
   .simulator .wy-sev-fill { animation: none; }
   .simulator .wy-spinner { animation-duration: 2.4s; }
+}
+
+/* Architectural scenario chooser: isolated layout, drawing, and motion. */
+.wayout-simulator-entry {
+  --entry-green: #00dc83;
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  padding: 8px 14px 10px;
+  overflow-x: clip;
+  color: #f0f1ef;
+  background: #070909;
+  border: 1px solid rgba(210,220,216,.2);
+  border-radius: 9px;
+}
+.wayout-simulator-entry *,
+.wayout-simulator-entry *::before,
+.wayout-simulator-entry *::after { box-sizing: border-box; }
+
+.wayout-simulator-entry .wy-entry-header {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: clamp(200px, 15.6vw, 225px) minmax(0,1fr);
+  height: 82px;
+  border: 1px solid rgba(220,230,228,.25);
+  border-radius: 8px 8px 0 0;
+  background: rgba(7,9,9,.92);
+}
+.wayout-simulator-entry .wy-entry-brand {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-right: 1px solid rgba(220,230,228,.2);
+  background: transparent;
+  color: #f5f6f5;
+  font-size: 31px;
+  font-weight: 500;
+  letter-spacing: -.055em;
+  cursor: pointer;
+}
+.wayout-simulator-entry .wy-entry-head-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 4px;
+  padding-left: 18px;
+  font-size: 17px;
+}
+.wayout-simulator-entry .wy-ready {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 9px;
+  border: 1px solid rgba(90,205,146,.3);
+  border-radius: 6px;
+  color: var(--entry-green);
+  font: 12px/1.45 var(--font-mono,monospace);
+}
+.wayout-simulator-entry .wy-ready i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--entry-green);
+  box-shadow: 0 0 10px rgba(0,220,131,.55);
+}
+.wayout-simulator-entry .wy-entry-home {
+  align-self: flex-start;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: #e2e5e3;
+  font: inherit;
+  cursor: pointer;
+}
+.wayout-simulator-entry .wy-entry-layout {
+  display: grid;
+  grid-template-columns: clamp(200px,15.6vw,225px) minmax(0,1fr);
+  /* Leave a 2px viewport-rounding buffer below the 82px header and page frame. */
+  min-height: calc(100svh - 104px);
+}
+.wayout-simulator-entry .wy-blueprint-rail {
+  position: relative;
+  min-width: 0;
+  min-height: calc(100svh - 104px);
+  overflow: hidden;
+  border-right: 1px solid rgba(202,218,210,.17);
+  background-color: #080b0b;
+  background-image:
+    linear-gradient(rgba(11,17,16,.12),rgba(7,9,9,.34)),
+    repeating-linear-gradient(0deg,transparent 0 15px,rgba(144,176,164,.045) 15.5px),
+    repeating-linear-gradient(90deg,transparent 0 15px,rgba(144,176,164,.045) 15.5px);
+  color: rgba(198,211,205,.36);
+}
+.wayout-simulator-entry .wy-blueprint-rail::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: -90px;
+  left: 0;
+  right: 0;
+  height: 180px;
+  background: linear-gradient(180deg,transparent,rgba(0,220,131,.025) 36%,rgba(0,220,131,.12) 50%,rgba(0,220,131,.025) 64%,transparent);
+  animation: wy-entry-plan-scan 6.5s linear infinite;
+  pointer-events: none;
+}
+.wayout-simulator-entry .wy-blueprint-rail .wy-rail-plan {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(100%,225px);
+  max-width: none;
+  height: 100%;
+  transform: translateX(-50%);
+}
+.wayout-simulator-entry .wy-plan-lines { opacity: .76; }
+.wayout-simulator-entry .wy-plan-outer { stroke-width: 2.25; }
+.wayout-simulator-entry .wy-plan-inner { stroke-width: .65; opacity: .72; }
+.wayout-simulator-entry .wy-plan-lines .wy-door-arcs { stroke-width: .8; }
+.wayout-simulator-entry .wy-plan-lines .wy-detail { stroke-width: .55; opacity: .48; }
+.wayout-simulator-entry .wy-plan-lines .wy-dims { stroke-width: .62; opacity: .64; }
+.wayout-simulator-entry .wy-dim-scan {
+  fill: none;
+  stroke: #c4ffe2;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-dasharray: 8 180;
+  filter: drop-shadow(0 0 2px rgba(0,220,131,.7));
+  animation: wy-entry-dim-scan 4.5s linear infinite;
+  pointer-events: none;
+}
+.wayout-simulator-entry .wy-plan-text {
+  fill: rgba(218,228,224,.55);
+  font: 4.3px var(--font-mono,monospace);
+  letter-spacing: .08em;
+}
+.wayout-simulator-entry .wy-plan-grid-labels { fill: none; stroke: rgba(218,228,224,.58); stroke-width: .65; }
+.wayout-simulator-entry .wy-plan-grid-labels circle { fill: #080a0a; }
+.wayout-simulator-entry .wy-plan-grid-labels text { fill: rgba(224,232,228,.7); stroke: none; text-anchor: middle; font: 5px var(--font-mono,monospace); }
+.wayout-simulator-entry .wy-plan-grid-labels path { stroke-width: .45; }
+.wayout-simulator-entry .wy-route-base { fill: none; stroke: var(--entry-green); stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; opacity: .28; }
+.wayout-simulator-entry .wy-route {
+  fill: none;
+  stroke: var(--entry-green);
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgba(0,220,131,.45));
+  stroke-dasharray: 5 5;
+  animation: wy-entry-route 2.8s linear infinite;
+}
+.wayout-simulator-entry .wy-route-alt { animation-delay: -1.1s; }
+.wayout-simulator-entry .wy-route-south { animation-delay: -1.8s; }
+.wayout-simulator-entry .wy-route-arrow {
+  fill: none;
+  stroke: var(--entry-green);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wayout-simulator-entry .wy-route-pulse,
+.wayout-simulator-entry .wy-demo-route-pulse {
+  fill: none;
+  stroke: #effff7;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 2 42;
+  filter: drop-shadow(0 0 4px #00dc83);
+  --route-travel: -100;
+  animation: wy-entry-pulse 2.8s linear infinite;
+  pointer-events: none;
+}
+.wayout-simulator-entry .wy-route-pulse-alt {
+  stroke: #48ffb3;
+  stroke-width: 1.4;
+  stroke-dasharray: 2 34;
+  animation-duration: 2.8s;
+  animation-delay: -1.4s;
+}
+.wayout-simulator-entry .wy-route-east-pulse { animation-delay: -1.1s; }
+.wayout-simulator-entry .wy-route-south-pulse { animation-delay: -2s; }
+.wayout-simulator-entry .wy-route-south-pulse { --route-travel: -417; animation-duration: 4.4s; }
+.wayout-simulator-entry .wy-route-arrow { opacity: .62; }
+.wayout-simulator-entry .wy-route-arrow-east { animation: wy-entry-arrow-glow 2.8s ease-in-out -1.1s infinite; }
+.wayout-simulator-entry .wy-route-arrow-south { animation: wy-entry-arrow-glow 2.8s ease-in-out -1.8s infinite; }
+.wayout-simulator-entry .wy-rail-coords,
+.wayout-simulator-entry .wy-rail-labels {
+  position: absolute;
+  z-index: 1;
+  font: 10px/1.5 var(--font-mono,monospace);
+  color: rgba(218,228,224,.53);
+}
+.wayout-simulator-entry .wy-rail-coords { top: 10px; right: 10px; }
+.wayout-simulator-entry .wy-rail-labels {
+  top: 30%;
+  left: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.wayout-simulator-entry .wy-entry-main {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  overflow: visible;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 15px,rgba(147,177,166,.035) 15.5px),
+    repeating-linear-gradient(90deg,transparent 0 15px,rgba(147,177,166,.035) 15.5px),
+    radial-gradient(ellipse at 50% 44%,rgba(0,124,76,.09),transparent 46%),
+    #080a0a;
+}
+.wayout-simulator-entry .wayout-live-motion {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  opacity: .82;
+  pointer-events: none;
+}
+.wayout-simulator-entry .wayout-live-bases path {
+  fill: none;
+  stroke: rgba(0,220,131,.22);
+  stroke-width: .8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wayout-simulator-entry .wayout-live-signal {
+  --wayout-live-duration: 4.8s;
+  --wayout-live-delay: 0s;
+  fill: none;
+  stroke: #00dc83;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 8 92;
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 2px rgba(0,220,131,.58));
+  animation: wayout-live-path-flow var(--wayout-live-duration) linear var(--wayout-live-delay) infinite;
+  pointer-events: none;
+}
+.wayout-simulator-entry .wayout-live-a { --wayout-live-duration: 4.2s; --wayout-live-delay: -1.5s; }
+.wayout-simulator-entry .wayout-live-b { --wayout-live-duration: 4.7s; --wayout-live-delay: -3.1s; }
+.wayout-simulator-entry .wayout-live-c { --wayout-live-duration: 5.1s; --wayout-live-delay: -2.2s; }
+.wayout-simulator-entry .wayout-live-d { --wayout-live-duration: 4.4s; --wayout-live-delay: -.9s; }
+.wayout-simulator-entry .wayout-live-e { --wayout-live-duration: 5.8s; --wayout-live-delay: -4.1s; }
+.wayout-simulator-entry .wayout-live-f { --wayout-live-duration: 5.3s; --wayout-live-delay: -2.8s; }
+.wayout-simulator-entry .wayout-live-g { --wayout-live-duration: 6.2s; --wayout-live-delay: -4.6s; }
+.wayout-simulator-entry .wayout-live-h { --wayout-live-duration: 5.6s; --wayout-live-delay: -1.8s; }
+.wayout-simulator-entry .wayout-live-i { --wayout-live-duration: 3.8s; --wayout-live-delay: -2.7s; }
+.wayout-simulator-entry .wayout-live-j { --wayout-live-duration: 4.6s; --wayout-live-delay: -1.2s; }
+.wayout-simulator-entry .wayout-live-pulse {
+  fill: none;
+  stroke: #b5ffdc;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2 98;
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 4px rgba(0,255,150,.8));
+  animation: wayout-live-path-flow 3.7s linear -1.1s infinite;
+  pointer-events: none;
+}
+.wayout-simulator-entry .wayout-live-pulse-d { animation-duration: 4.5s; animation-delay: -2.4s; }
+.wayout-simulator-entry .wayout-live-pulse-e { animation-duration: 5.4s; animation-delay: -3.6s; }
+.wayout-simulator-entry .wayout-live-pulse-h { animation-duration: 4.9s; animation-delay: -1.7s; }
+.wayout-simulator-entry .wy-entry-main::before {
+  content: '';
+  position: absolute;
+  inset: 0 10%;
+  border-left: 1px solid rgba(208,225,217,.1);
+  border-right: 1px solid rgba(208,225,217,.1);
+  pointer-events: none;
+}
+.wayout-simulator-entry .wy-entry-content {
+  position: relative;
+  z-index: 1;
+  width: min(1040px,calc(100% - 48px));
+  margin: clamp(38px,6vh,54px) auto 28px;
+}
+.wayout-simulator-entry .wy-entry-content h1 {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(48px,3.8vw,56px);
+  line-height: 1.08;
+  letter-spacing: -.05em;
+  font-weight: 500;
+}
+.wayout-simulator-entry .wy-entry-intro {
+  margin: 8px 0 34px;
+  text-align: center;
+  color: #929b9a;
+  font-size: clamp(17px,1.4vw,20px);
+  letter-spacing: -.015em;
+}
+.wayout-simulator-entry .wy-steps {
+  display: grid;
+  grid-template-columns: auto minmax(26px,1fr) auto minmax(26px,1fr) auto;
+  align-items: center;
+  gap: clamp(10px,1.5vw,18px);
+  width: min(930px,100%);
+  margin: 0 auto;
+  padding: 0 4px 11px;
+  border-bottom: 1px solid rgba(212,224,218,.3);
+}
+.wayout-simulator-entry .wy-step {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  white-space: nowrap;
+  color: #737a78;
+}
+.wayout-simulator-entry .wy-step b { font-size: 27px; line-height: 1; font-weight: 400; }
+.wayout-simulator-entry .wy-step span { font-size: 12px; }
+.wayout-simulator-entry .wy-step.active { color: #f0f1ef; }
+.wayout-simulator-entry .wy-step.active::after {
+  content: '';
+  position: absolute;
+  height: 3px;
+  bottom: -13px;
+  left: 0;
+  right: 0;
+  background: linear-gradient(100deg,#f0f1ef 0 58%,var(--entry-green) 72%,#f0f1ef 86%);
+  background-size: 220% 100%;
+  animation: wy-entry-underline-glide 5s ease-in-out infinite;
+}
+.wayout-simulator-entry .wy-steps > i {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(90deg,#555c59,#9aa19e);
+}
+.wayout-simulator-entry .wy-steps > i::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: 0;
+  width: 7px;
+  height: 7px;
+  border-top: 1px solid #aeb5b1;
+  border-right: 1px solid #aeb5b1;
+  transform: rotate(45deg);
+}
+.wayout-simulator-entry .wy-entry-cards {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 28px;
+  width: min(780px,100%);
+  margin: 22px auto 0;
+}
+.wayout-simulator-entry .wy-entry-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 248px;
+  padding: 14px 16px 12px;
+  overflow: hidden;
+  text-align: left;
+  color: #f0f1ef;
+  border: 1px solid rgba(210,220,216,.34);
+  border-radius: 12px;
+  background: linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.018) 48%,rgba(255,255,255,.045)),#101313;
+  box-shadow: 0 10px 20px rgba(0,0,0,.25),0 16px 0 -9px #0b0d0d,0 17px 0 -8px rgba(198,211,205,.2);
+  cursor: pointer;
+  transition: transform .2s ease,border-color .2s ease,box-shadow .2s ease;
+}
+.wayout-simulator-entry .wy-entry-card:hover,
+.wayout-simulator-entry .wy-entry-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(0,220,131,.58);
+  box-shadow: 0 12px 26px rgba(0,0,0,.3),0 0 20px rgba(0,220,131,.06),0 16px 0 -9px #0b0d0d,0 17px 0 -8px rgba(198,211,205,.2);
+  outline: none;
+}
+.wayout-simulator-entry .wy-demo-preview,
+.wayout-simulator-entry .wy-upload-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  height: clamp(132px,15.5vh,140px);
+  overflow: hidden;
+}
+.wayout-simulator-entry .wy-demo-preview { background: #f2f1ed; }
+.wayout-simulator-entry .wy-demo-preview > svg { width: 100%; height: 100%; }
+.wayout-simulator-entry .wy-demo-walls { stroke: #242927; }
+.wayout-simulator-entry .wy-demo-details { stroke: #555a58; }
+.wayout-simulator-entry .wy-demo-labels { fill: #737a77; font: 5px var(--font-mono,monospace); letter-spacing: .04em; }
+.wayout-simulator-entry .wy-demo-card { cursor: pointer; }
+.wayout-simulator-entry .wy-demo-route-base { fill: none; stroke: #00c878; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: .42; }
+.wayout-simulator-entry .wy-demo-signal,
+.wayout-simulator-entry .wy-demo-pulse { fill: none; opacity: 0; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.wayout-simulator-entry .wy-demo-signal { stroke: #00c878; stroke-width: 3; stroke-dasharray: 10 400; filter: drop-shadow(0 0 2px rgba(0,200,120,.65)); }
+.wayout-simulator-entry .wy-demo-pulse { stroke: #f3fff8; stroke-width: 2.5; stroke-dasharray: 3 410; filter: drop-shadow(0 0 4px #00c878); }
+.wayout-simulator-entry .wy-demo-west { --demo-travel: -174px; --demo-duration: 2.45s; --demo-delay: .1s; }
+.wayout-simulator-entry .wy-demo-east { --demo-travel: -174px; --demo-duration: 2.45s; --demo-delay: .55s; }
+.wayout-simulator-entry .wy-demo-north { --demo-travel: -96px; --demo-duration: 1.8s; --demo-delay: 1s; }
+.wayout-simulator-entry .wy-demo-south { --demo-travel: -82px; --demo-duration: 1.7s; --demo-delay: 1.45s; }
+.wayout-simulator-entry .wy-demo-arrow { fill: none; stroke: #00c878; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; opacity: .5; }
+.wayout-simulator-entry .wy-demo-card.has-preview-run .wy-demo-signal { animation: wy-demo-route-run var(--demo-duration) linear var(--demo-delay) both; }
+.wayout-simulator-entry .wy-demo-card.has-preview-run .wy-demo-pulse { animation: wy-demo-pulse-run var(--demo-duration) linear calc(var(--demo-delay) + .12s) both; }
+.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-signal,
+.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-pulse,
+.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-arrow { animation-play-state: paused; }
+.wayout-simulator-entry .wy-demo-card.has-preview-run .wy-demo-arrow { animation: wy-demo-arrow-arrival .3s ease-out calc(var(--demo-delay) + var(--demo-duration) - .25s) both; }
+.wayout-simulator-entry .wy-demo-card.is-playing .wy-demo-arrow { animation-play-state: running; }
+.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-signal,
+.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-pulse,
+.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-arrow { animation-play-state: paused; }
+.wayout-simulator-entry .wy-demo-card.is-playing { border-color: rgba(0,220,131,.5); }
+.wayout-simulator-entry .wy-demo-open { width: 100%; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; }
+.wayout-simulator-entry .wy-demo-open:hover { color: #f0f1ef; }
+.wayout-simulator-entry .wy-demo-open:focus-visible { outline: 2px solid var(--entry-green); outline-offset: 2px; }
+.wayout-simulator-entry .wy-play-icon { display: block; }
+.wayout-simulator-entry .wy-play {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgba(255,255,255,.62);
+  border-radius: 50%;
+  background: rgba(12,20,18,.9);
+  box-shadow: 0 0 0 5px rgba(0,200,120,.13),0 0 20px rgba(0,200,120,.25);
+  padding: 0;
+  cursor: pointer;
+  transition: box-shadow .2s ease,background .2s ease,transform .2s ease;
+}
+.wayout-simulator-entry .wy-play:hover { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(0,200,120,.18),0 0 24px rgba(0,200,120,.38); }
+.wayout-simulator-entry .wy-play:focus-visible { outline: 2px solid #f0fff7; outline-offset: 4px; }
+.wayout-simulator-entry .wy-play-icon {
+  width: 0;
+  height: 0;
+  margin-left: 5px;
+  border-top: 11px solid transparent;
+  border-bottom: 11px solid transparent;
+  border-left: 17px solid white;
+}
+.wayout-simulator-entry .wy-play.is-playing .wy-play-icon { width: 16px; height: 18px; margin: 0; border: 0; background: linear-gradient(90deg,#fff 0 5px,transparent 5px 11px,#fff 11px 16px); }
+.wayout-simulator-entry .wy-play.is-complete .wy-play-icon { width: auto; height: auto; margin: 0; border: 0; background: none; color: #fff; font-size: 28px; line-height: 1; }
+.wayout-simulator-entry .wy-entry-card-title {
+  margin-top: 10px;
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -.03em;
+  font-weight: 500;
+}
+.wayout-simulator-entry .wy-entry-card-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 8px;
+  color: #aeb4b1;
+  font-size: 12px;
+}
+.wayout-simulator-entry .wy-entry-card-action b { color: var(--entry-green); font-size: 17px; }
+.wayout-simulator-entry .wy-upload-entry { padding-bottom: 16px; }
+.wayout-simulator-entry .wy-upload-entry input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.wayout-simulator-entry .wy-upload-preview {
+  border: 1px solid rgba(220,232,226,.13);
+  background:
+    repeating-linear-gradient(0deg,transparent 0 15px,rgba(182,207,195,.065) 15.5px),
+    repeating-linear-gradient(90deg,transparent 0 15px,rgba(182,207,195,.065) 15.5px),
+    #111615;
+}
+.wayout-simulator-entry .wy-upload-preview > svg:first-of-type { width: 75%; height: 85%; color: rgba(218,229,223,.65); }
+.wayout-simulator-entry .wy-upload-preview > svg:first-of-type path { stroke-width: 1.2; }
+.wayout-simulator-entry .wy-corner { position: absolute; z-index: 1; width: 16px; height: 16px; border-color: #edf4f0; border-style: solid; }
+.wayout-simulator-entry .wy-corner.tl { top: 10px; left: 10px; border-width: 1px 0 0 1px; }
+.wayout-simulator-entry .wy-corner.tr { top: 10px; right: 10px; border-width: 1px 1px 0 0; }
+.wayout-simulator-entry .wy-corner.bl { bottom: 10px; left: 10px; border-width: 0 0 1px 1px; }
+.wayout-simulator-entry .wy-corner.br { bottom: 10px; right: 10px; border-width: 0 1px 1px 0; }
+.wayout-simulator-entry .wy-upload-beam {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg,transparent 0,#00d983 14%,#aaffd5 50%,#00d983 86%,transparent 100%);
+  box-shadow: 0 0 10px 2px rgba(0,220,131,.65),0 0 34px 7px rgba(0,220,131,.34);
+  animation: wy-entry-beam 3.1s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+.wayout-simulator-entry .wy-upload-beam::after {
+  content: '';
+  position: absolute;
+  inset: -16px 0;
+  background: linear-gradient(180deg,transparent,rgba(0,220,131,.2),rgba(170,255,213,.13),transparent);
+  pointer-events: none;
+}
+.wayout-simulator-entry .wy-document {
+  position: absolute;
+  z-index: 1;
+  left: 48%;
+  top: 42%;
+  width: 48px;
+  height: 58px;
+  fill: none;
+  stroke: #effff7;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 7px rgba(0,220,131,.34));
+}
+.wayout-simulator-entry .wy-upload-pointer {
+  position: absolute;
+  z-index: 2;
+  left: 58%;
+  top: 54%;
+  font-size: 38px;
+  color: #fff;
+  transform: rotate(-38deg);
+  text-shadow: 0 2px 9px #000;
+}
+.wayout-simulator-entry .wy-entry-card-sub { margin-top: 2px; color: #aeb4b1; font-size: 12px; }
+.wayout-simulator-entry .wy-upload-entry.is-dragging { border-color: var(--entry-green); box-shadow: 0 0 22px rgba(0,220,131,.2); }
+.wayout-simulator-entry .wy-upload-entry.is-busy { cursor: progress; }
+.wayout-simulator-entry .wy-entry-upload-state { margin: 14px auto 0; max-width: 800px; color: #aeb4b1; font-size: 13px; }
+.wayout-simulator-entry .wy-entry-upload-state > p { margin: 8px 0; }
+.wayout-simulator-entry .wy-entry-coordinates,
+.wayout-simulator-entry .wy-entry-right-coords { position: absolute; color: rgba(218,228,224,.48); font: 10px/1.5 var(--font-mono,monospace); }
+.wayout-simulator-entry .wy-entry-coordinates { top: 10px; right: 14px; z-index: 2; }
+.wayout-simulator-entry .wy-entry-right-coords { right: 14px; bottom: 22%; }
+.wayout-simulator-entry .wy-entry-bottom-scale { position:absolute;right:5%;bottom:14px;width:36%;height:12px;opacity:.4;background:repeating-linear-gradient(90deg,rgba(215,226,220,.75) 0 1px,transparent 1px 8px);mask-image:linear-gradient(to bottom,#000 0 40%,transparent 40%);pointer-events:none; }
+
+@keyframes wy-entry-route { to { stroke-dashoffset: -50; } }
+@keyframes wy-entry-arrow-glow { 0%,100% { opacity: .45; } 55% { opacity: 1; filter: drop-shadow(0 0 3px var(--entry-green)); } }
+@keyframes wy-entry-pulse { 0%,100% { stroke-dashoffset: 0; opacity: 0; } 12%,88% { opacity: 1; } 100% { stroke-dashoffset: var(--route-travel); } }
+@keyframes wayout-live-path-flow { to { stroke-dashoffset: -100; } }
+@keyframes wy-entry-dim-scan { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -188; } }
+@keyframes wy-entry-plan-scan { from { transform: translateY(0); } to { transform: translateY(calc(100% + 100svh)); } }
+@keyframes wy-demo-route-run { 0% { stroke-dashoffset: 0; opacity: 0; } 12% { opacity: .98; } 86% { opacity: .98; } 100% { stroke-dashoffset: var(--demo-travel); opacity: 0; } }
+@keyframes wy-demo-pulse-run { 0% { stroke-dashoffset: 0; opacity: 0; } 16% { opacity: 1; } 82% { opacity: 1; } 100% { stroke-dashoffset: var(--demo-travel); opacity: 0; } }
+@keyframes wy-demo-arrow-arrival { 0% { opacity: .35; transform: scale(.85); } 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 3px #00c878); } }
+@keyframes wy-entry-underline-glide { 0%,18% { background-position: 100% 0; } 78%,100% { background-position: 0 0; } }
+@keyframes wy-entry-beam { from { top: 0; opacity: .55; } to { top: calc(100% - 2px); opacity: 1; } }
+
+@media (max-width: 1080px) and (min-width: 761px) {
+  .wayout-simulator-entry .wy-entry-header,
+  .wayout-simulator-entry .wy-entry-layout { grid-template-columns: 185px minmax(0,1fr); }
+  .wayout-simulator-entry .wy-entry-content { width: min(940px,calc(100% - 40px)); }
+  .wayout-simulator-entry .wy-entry-content h1 { font-size: clamp(44px,4.3vw,52px); }
+  .wayout-simulator-entry .wy-steps { gap: 10px; }
+  .wayout-simulator-entry .wy-step { gap: 6px; }
+  .wayout-simulator-entry .wy-step b { font-size: 23px; }
+  .wayout-simulator-entry .wy-step span { font-size: 10px; }
+  .wayout-simulator-entry .wy-entry-cards { gap: 24px; }
+}
+@media (max-width: 1000px) and (min-width: 761px) {
+  .wayout-simulator-entry .wy-entry-cards { grid-template-columns: minmax(0,380px); justify-content: center; }
+}
+@media (max-height: 820px) and (min-width: 761px) {
+  .wayout-simulator-entry .wy-entry-content { margin-top: 28px; margin-bottom: 18px; }
+  .wayout-simulator-entry .wy-entry-intro { margin-bottom: 24px; }
+  .wayout-simulator-entry .wy-demo-preview,
+  .wayout-simulator-entry .wy-upload-preview { height: clamp(132px,17vh,145px); }
+  .wayout-simulator-entry .wy-entry-cards { margin-top: 20px; }
+}
+@media (max-width: 760px) {
+  .wayout-simulator-entry { padding: 6px 6px 8px; }
+  .wayout-simulator-entry .wy-entry-header { grid-template-columns: 1fr auto; height: 68px; }
+  .wayout-simulator-entry .wy-entry-brand { justify-content: start; padding-left: 18px; border: 0; font-size: 27px; }
+  .wayout-simulator-entry .wy-entry-head-main,
+  .wayout-simulator-entry .wy-blueprint-rail { display: none; }
+  .wayout-simulator-entry .wy-entry-layout { display: block; min-height: calc(100svh - 84px); }
+  .wayout-simulator-entry .wy-entry-content { width: calc(100% - 32px); margin: 34px auto; }
+  .wayout-simulator-entry .wy-entry-content h1 { font-size: clamp(40px,10vw,52px); }
+  .wayout-simulator-entry .wy-entry-intro { margin: 8px 0 24px; font-size: 16px; }
+  .wayout-simulator-entry .wy-steps { grid-template-columns: 1fr; gap: 10px; padding: 0 2px 10px; }
+  .wayout-simulator-entry .wy-steps > i { display: none; }
+  .wayout-simulator-entry .wy-step { min-height: 28px; gap: 10px; }
+  .wayout-simulator-entry .wy-step b { font-size: 23px; }
+  .wayout-simulator-entry .wy-step span { font-size: 11px; }
+  .wayout-simulator-entry .wy-step.active::after { bottom: -2px; right: auto; width: 160px; height: 2px; }
+  .wayout-simulator-entry .wy-entry-cards { grid-template-columns: 1fr; gap: 16px; width: 100%; margin-top: 18px; }
+  .wayout-simulator-entry .wy-entry-card { padding: 12px; }
+  .wayout-simulator-entry .wy-demo-preview,
+  .wayout-simulator-entry .wy-upload-preview { height: clamp(150px,44vw,180px); }
+  .wayout-simulator-entry .wy-entry-card-title { margin-top: 12px; font-size: 22px; }
+  .wayout-simulator-entry .wy-entry-coordinates,
+  .wayout-simulator-entry .wy-entry-right-coords,
+  .wayout-simulator-entry .wy-entry-bottom-scale { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wayout-simulator-entry .wayout-live-signal,
+  .wayout-simulator-entry .wayout-live-pulse,
+  .wayout-simulator-entry .wy-route,
+  .wayout-simulator-entry .wy-route-pulse,
+  .wayout-simulator-entry .wy-route-arrow,
+  .wayout-simulator-entry .wy-dim-scan,
+  .wayout-simulator-entry .wy-blueprint-rail::after,
+  .wayout-simulator-entry .wy-upload-beam,
+  .wayout-simulator-entry .wy-step.active::after { animation: none !important; }
+  .wayout-simulator-entry .wy-upload-beam { top: 55% !important; }
+  .wayout-simulator-entry *,
+  .wayout-simulator-entry *::before,
+  .wayout-simulator-entry *::after { transition-duration: .01ms !important; }
+}
+
+/* ==========================================================================
+   WAYOUT LIVE MOTION FIX
+   Keep the ambient technical signals animated on page entry, including when
+   the operating system/browser has "reduce motion" enabled. These are the
+   explicitly requested decorative live-status effects; core UI remains usable.
+   This block intentionally comes AFTER the reduced-motion rules above.
+   ========================================================================== */
+.wayout-simulator-entry .wayout-live-motion,
+.wayout-simulator-entry .wayout-live-motion * {
+  visibility: visible;
+}
+
+.wayout-simulator-entry .wayout-live-signal {
+  animation-name: wayout-live-path-flow !important;
+  animation-duration: var(--wayout-live-duration, 4.8s) !important;
+  animation-timing-function: linear !important;
+  animation-delay: var(--wayout-live-delay, 0s) !important;
+  animation-iteration-count: infinite !important;
+  animation-play-state: running !important;
+}
+
+.wayout-simulator-entry .wayout-live-pulse {
+  animation-name: wayout-live-path-flow !important;
+  animation-duration: 3.7s !important;
+  animation-timing-function: linear !important;
+  animation-delay: -1.1s !important;
+  animation-iteration-count: infinite !important;
+  animation-play-state: running !important;
+}
+.wayout-simulator-entry .wayout-live-pulse-d {
+  animation-duration: 4.5s !important;
+  animation-delay: -2.4s !important;
+}
+.wayout-simulator-entry .wayout-live-pulse-e {
+  animation-duration: 5.4s !important;
+  animation-delay: -3.6s !important;
+}
+.wayout-simulator-entry .wayout-live-pulse-h {
+  animation-duration: 4.9s !important;
+  animation-delay: -1.7s !important;
+}
+
+.wayout-simulator-entry .wy-route {
+  animation-name: wy-entry-route !important;
+  animation-duration: 2.8s !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+  animation-play-state: running !important;
+}
+.wayout-simulator-entry .wy-route-alt { animation-delay: -1.1s !important; }
+.wayout-simulator-entry .wy-route-south { animation-delay: -1.8s !important; }
+
+.wayout-simulator-entry .wy-route-pulse,
+.wayout-simulator-entry .wy-demo-route-pulse {
+  animation-name: wy-entry-pulse !important;
+  animation-duration: 2.8s !important;
+  animation-timing-function: linear !important;
+  animation-iteration-count: infinite !important;
+  animation-play-state: running !important;
+}
+.wayout-simulator-entry .wy-route-east-pulse { animation-delay: -1.1s !important; }
+.wayout-simulator-entry .wy-route-south-pulse {
+  animation-duration: 4.4s !important;
+  animation-delay: -2s !important;
+}
+
+.wayout-simulator-entry .wy-dim-scan {
+  animation: wy-entry-dim-scan 4.5s linear infinite !important;
+  animation-play-state: running !important;
+}
+.wayout-simulator-entry .wy-blueprint-rail::after {
+  animation: wy-entry-plan-scan 6.5s linear infinite !important;
+  animation-play-state: running !important;
+}
+.wayout-simulator-entry .wy-upload-beam {
+  animation: wy-entry-beam 3.1s ease-in-out infinite alternate !important;
+  animation-play-state: running !important;
+}
+.wayout-simulator-entry .wy-entry-content .wy-step.active::after {
+  animation: wy-entry-underline-glide 5s ease-in-out infinite !important;
+  animation-play-state: running !important;
+}
+
+/* A moving glow is visible even if SVG dash rendering is unusually subtle. */
+.wayout-simulator-entry .wayout-live-motion {
+  opacity: .95;
+}
+.wayout-simulator-entry .wayout-live-bases path {
+  stroke: rgba(0, 220, 131, .28);
+}
+.wayout-simulator-entry .wayout-live-signal {
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 3px rgba(0, 255, 153, .85));
+}
+.wayout-simulator-entry .wy-upload-beam {
+  height: 3px;
+  box-shadow: 0 0 12px 3px rgba(0,220,131,.78), 0 0 38px 9px rgba(0,220,131,.42);
 }
