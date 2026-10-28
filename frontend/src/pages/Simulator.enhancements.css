@@ -1484,48 +1484,9 @@
 .wayout-simulator-entry .wy-demo-north { --demo-travel: -96px; --demo-duration: 1.8s; --demo-delay: 1s; }
 .wayout-simulator-entry .wy-demo-south { --demo-travel: -82px; --demo-duration: 1.7s; --demo-delay: 1.45s; }
 .wayout-simulator-entry .wy-demo-arrow { fill: none; stroke: #00c878; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; opacity: .5; }
-.wayout-simulator-entry .wy-demo-card.has-preview-run .wy-demo-signal { animation: wy-demo-route-run var(--demo-duration) linear var(--demo-delay) both; }
-.wayout-simulator-entry .wy-demo-card.has-preview-run .wy-demo-pulse { animation: wy-demo-pulse-run var(--demo-duration) linear calc(var(--demo-delay) + .12s) both; }
-.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-signal,
-.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-pulse,
-.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-arrow { animation-play-state: paused; }
-.wayout-simulator-entry .wy-demo-card.has-preview-run .wy-demo-arrow { animation: wy-demo-arrow-arrival .3s ease-out calc(var(--demo-delay) + var(--demo-duration) - .25s) both; }
-.wayout-simulator-entry .wy-demo-card.is-playing .wy-demo-arrow { animation-play-state: running; }
-.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-signal,
-.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-pulse,
-.wayout-simulator-entry .wy-demo-card.is-paused .wy-demo-arrow { animation-play-state: paused; }
-.wayout-simulator-entry .wy-demo-card.is-playing { border-color: rgba(0,220,131,.5); }
 .wayout-simulator-entry .wy-demo-open { width: 100%; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .wayout-simulator-entry .wy-demo-open:hover { color: #f0f1ef; }
 .wayout-simulator-entry .wy-demo-open:focus-visible { outline: 2px solid var(--entry-green); outline-offset: 2px; }
-.wayout-simulator-entry .wy-play-icon { display: block; }
-.wayout-simulator-entry .wy-play {
-  position: absolute;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 54px;
-  height: 54px;
-  border: 1px solid rgba(255,255,255,.62);
-  border-radius: 50%;
-  background: rgba(12,20,18,.9);
-  box-shadow: 0 0 0 5px rgba(0,200,120,.13),0 0 20px rgba(0,200,120,.25);
-  padding: 0;
-  cursor: pointer;
-  transition: box-shadow .2s ease,background .2s ease,transform .2s ease;
-}
-.wayout-simulator-entry .wy-play:hover { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(0,200,120,.18),0 0 24px rgba(0,200,120,.38); }
-.wayout-simulator-entry .wy-play:focus-visible { outline: 2px solid #f0fff7; outline-offset: 4px; }
-.wayout-simulator-entry .wy-play-icon {
-  width: 0;
-  height: 0;
-  margin-left: 5px;
-  border-top: 11px solid transparent;
-  border-bottom: 11px solid transparent;
-  border-left: 17px solid white;
-}
-.wayout-simulator-entry .wy-play.is-playing .wy-play-icon { width: 16px; height: 18px; margin: 0; border: 0; background: linear-gradient(90deg,#fff 0 5px,transparent 5px 11px,#fff 11px 16px); }
-.wayout-simulator-entry .wy-play.is-complete .wy-play-icon { width: auto; height: auto; margin: 0; border: 0; background: none; color: #fff; font-size: 28px; line-height: 1; }
 .wayout-simulator-entry .wy-entry-card-title {
   margin-top: 10px;
   font-size: 22px;
@@ -1616,9 +1577,6 @@
 @keyframes wayout-live-path-flow { to { stroke-dashoffset: -100; } }
 @keyframes wy-entry-dim-scan { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -188; } }
 @keyframes wy-entry-plan-scan { from { transform: translateY(0); } to { transform: translateY(calc(100% + 100svh)); } }
-@keyframes wy-demo-route-run { 0% { stroke-dashoffset: 0; opacity: 0; } 12% { opacity: .98; } 86% { opacity: .98; } 100% { stroke-dashoffset: var(--demo-travel); opacity: 0; } }
-@keyframes wy-demo-pulse-run { 0% { stroke-dashoffset: 0; opacity: 0; } 16% { opacity: 1; } 82% { opacity: 1; } 100% { stroke-dashoffset: var(--demo-travel); opacity: 0; } }
-@keyframes wy-demo-arrow-arrival { 0% { opacity: .35; transform: scale(.85); } 100% { opacity: 1; transform: scale(1); filter: drop-shadow(0 0 3px #00c878); } }
 @keyframes wy-entry-underline-glide { 0%,18% { background-position: 100% 0; } 78%,100% { background-position: 0 0; } }
 @keyframes wy-entry-beam { from { top: 0; opacity: .55; } to { top: calc(100% - 2px); opacity: 1; } }
 

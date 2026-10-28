@@ -314,9 +314,6 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   } = sim;
 
   const [startChoice, setStartChoice] = useState<'choose' | 'demo' | 'upload'>('choose');
-  const [demoPreviewState, setDemoPreviewState] = useState<'idle' | 'playing' | 'paused' | 'finished'>('idle');
-  const [demoPreviewReplay, setDemoPreviewReplay] = useState(0);
-  const demoPreviewRemaining = useRef(4000);
   const [uploadedDesign, setUploadedDesign] = useState<ImportedDesign | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -326,33 +323,6 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
   const [uploadElapsed, setUploadElapsed] = useState(0);
   const uploadAbort = useRef<{ controller: AbortController; reason: 'cancel' | 'timeout' | null } | null>(null);
   const resultSections = uploadedDesign ? SECTIONS.slice(0, 2) : SECTIONS;
-
-  useEffect(() => {
-    if (demoPreviewState !== 'playing') return;
-    const beganAt = performance.now();
-    const timer = window.setTimeout(() => {
-      setDemoPreviewState('finished');
-    }, demoPreviewRemaining.current);
-    return () => {
-      window.clearTimeout(timer);
-      demoPreviewRemaining.current = Math.max(0, demoPreviewRemaining.current - (performance.now() - beganAt));
-    };
-  }, [demoPreviewState, demoPreviewReplay]);
-
-  const toggleDemoPreview = () => {
-    if (demoPreviewState === 'playing') {
-      setDemoPreviewState('paused');
-    } else if (demoPreviewState === 'paused') {
-      setDemoPreviewState('playing');
-    } else if (demoPreviewState === 'finished') {
-      demoPreviewRemaining.current = 4000;
-      setDemoPreviewReplay((runId) => runId + 1);
-      setDemoPreviewState('playing');
-    } else {
-      demoPreviewRemaining.current = 4000;
-      setDemoPreviewState('playing');
-    }
-  };
 
   const [view, setView] = useState<ViewMode>('3d');
   const [camPreset, setCamPreset] = useState<CameraPresetT>('iso');
@@ -696,7 +666,7 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
               </div>
               <div className="wy-entry-cards">
                 <div
-                  className={`wy-entry-card wy-demo-card${demoPreviewState !== 'idle' ? ' has-preview-run' : ''}${demoPreviewState === 'playing' ? ' is-playing' : ''}${demoPreviewState === 'paused' ? ' is-paused' : ''}${demoPreviewState === 'finished' ? ' is-complete' : ''}`}
+                  className="wy-entry-card wy-demo-card"
                   role="group"
                   tabIndex={0}
                   aria-label="Demo building. Press Enter or Space to open."
@@ -710,7 +680,7 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
                   }}
                 >
                 <span className="wy-demo-preview">
-                    <svg key={demoPreviewReplay} viewBox="0 0 500 300" aria-hidden="true" focusable="false">
+                    <svg viewBox="0 0 500 300" aria-hidden="true" focusable="false">
                       <rect x="34" y="26" width="432" height="248" fill="#f2f1ed" />
                       <g className="wy-demo-walls" fill="none" stroke="#292c2b" strokeWidth="4.5" strokeLinejoin="miter">
                         <path d="M76 62h166m16 0h166v86m0 20v72H258m-16 0H76v-72m0-20V62" />
@@ -737,9 +707,6 @@ export default function Simulator({ onNavigate }: { onNavigate: (r: Route) => vo
                       <path className="wy-demo-arrow wy-demo-north" d="m244 70 6-8 6 8" />
                       <path className="wy-demo-arrow wy-demo-south" d="m244 232 6 8 6-8" />
                     </svg>
-                    <button className={`wy-play${demoPreviewState === 'playing' ? ' is-playing' : ''}${demoPreviewState === 'finished' ? ' is-complete' : ''}`} type="button" onClick={(event) => { event.stopPropagation(); toggleDemoPreview(); }} aria-label={demoPreviewState === 'playing' ? 'Pause evacuation preview' : demoPreviewState === 'paused' ? 'Resume evacuation preview' : demoPreviewState === 'finished' ? 'Replay evacuation preview' : 'Play evacuation preview'}>
-                      <span className="wy-play-icon" aria-hidden="true">{demoPreviewState === 'finished' ? '↻' : ''}</span>
-                    </button>
                   </span>
                   <span className="wy-entry-card-title">Demo building</span>
                   <span className="wy-entry-card-action wy-demo-open">Open demo building <b>→</b></span>
