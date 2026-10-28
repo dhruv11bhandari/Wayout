@@ -10,19 +10,7 @@ Wayout builds a digital model of a multi-floor building, simulates a crowd evacu
 
 ## Demo
 
-<!-- Replace the link below with your video. Options:
-
-1) YouTube thumbnail link:
-[![Wayout demo](docs/demo-thumbnail.png)](https://youtu.be/YOUR_VIDEO_ID)
-
-2) Local/GitHub-hosted video (drag the .mp4 into a GitHub issue or README editor to get a URL):
-https://github.com/user-attachments/assets/YOUR_VIDEO_ID
-
-3) GIF preview:
-![Wayout demo](docs/demo.gif)
--->
-
-🎬 **Demo video: _coming soon_**
+https://github.com/user-attachments/assets/a219efed-9947-49f4-8e53-36768bd04875
 
 ---
 
