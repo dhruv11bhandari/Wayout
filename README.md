@@ -12,7 +12,7 @@ Wayout builds a digital model of a multi-floor building, simulates a crowd evacu
 
 https://github.com/user-attachments/assets/a219efed-9947-49f4-8e53-36768bd04875
 
-
+https://github.com/user-attachments/assets/8ff9c2d4-713a-40da-8bd4-db191f280c46
 
 ## Quick start
 
