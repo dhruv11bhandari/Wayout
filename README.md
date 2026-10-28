@@ -6,13 +6,13 @@ Wayout builds a digital model of a multi-floor building, simulates a crowd evacu
 
 > **Prototype status.** Runs fully locally on the CPU. No GPU, cloud service or API key needed. CUDA and NVIDIA Nemotron are optional integration points that are off by default (see [`.env.example`](.env.example)).
 
----
 
-## Demo
+
+## How it looks 
 
 https://github.com/user-attachments/assets/a219efed-9947-49f4-8e53-36768bd04875
 
----
+
 
 ## Quick start
 
