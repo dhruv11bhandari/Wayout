@@ -4,9 +4,6 @@
 
 WayOut models a multi-floor building, simulates an evacuation, highlights where congestion forms, and helps you compare design changes such as wider corridors, additional exits, or blocked routes. It is a local research prototype for exploring relative what-if scenarios, not a life-safety or code-compliance tool.
 
-
-
-hidehikejnkie
 ## Product videos
 
 The videos below show WayOut in action:
