@@ -165,6 +165,5 @@ fi
 echo "-> starting frontend (API port ${WAYOUT_PORT}); open the Local address Vite prints below"
 echo "   (normally http://localhost:5173 - Vite picks the next free port if that one is busy)"
 echo "-> Ctrl+C stops everything"
-
 cd frontend
 npm run dev -- --open
