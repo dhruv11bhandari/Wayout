@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "drill": {
+    "kind": "observed_drill",
+    "provenance": "field drill observations supplied by user",
+    "timeline": [
+      {
+        "time_s": 0,
+        "exited_interval": 0,
+        "cumulative_exited": 0
+      },
+      {
+        "time_s": 60,
+        "exited_interval": 23,
+        "cumulative_exited": 23
+      },
+      {
+        "time_s": 120,
+        "exited_interval": 74,
+        "cumulative_exited": 97
+      },
+      {
+        "time_s": 180,
+        "exited_interval": 77,
+        "cumulative_exited": 174
+      },
+      {
+        "time_s": 240,
+        "exited_interval": 67,
+        "cumulative_exited": 241
+      },
+      {
+        "time_s": 300,
+        "exited_interval": 53,
+        "cumulative_exited": 294
+      },
+      {
+        "time_s": 360,
+        "exited_interval": 3,
+        "cumulative_exited": 297
+      },
+      {
+        "time_s": 420,
+        "exited_interval": 0,
+        "cumulative_exited": 297
+      },
+      {
+        "time_s": 480,
+        "exited_interval": 2,
+        "cumulative_exited": 299
+      }
+    ],
+    "initial_occupants_by_floor": [
+      {
+        "floor_elevation_m": -3.0,
+        "initial_occupants": 0,
+        "pathfinder_components_aggregated": 2
+      },
+      {
+        "floor_elevation_m": 0.0,
+        "initial_occupants": 0,
+        "pathfinder_components_aggregated": 3
+      },
+      {
+        "floor_elevation_m": 0.3,
+        "initial_occupants": 4,
+        "pathfinder_components_aggregated": 13
+      },
+      {
+        "floor_elevation_m": 0.94,
+        "initial_occupants": 15,
+        "pathfinder_components_aggregated": 70
+      },
+      {
+        "floor_elevation_m": 5.74,
+        "initial_occupants": 49,
+        "pathfinder_components_aggregated": 103
+      },
+      {
+        "floor_elevation_m": 9.87,
+        "initial_occupants": 20,
+        "pathfinder_components_aggregated": 111
+      },
+      {
+        "floor_elevation_m": 13.98,
+        "initial_occupants": 107,
+        "pathfinder_components_aggregated": 104
+      },
+      {
+        "floor_elevation_m": 18.09,
+        "initial_occupants": 56,
+        "pathfinder_components_aggregated": 76
+      },
+      {
+        "floor_elevation_m": 22.2,
+        "initial_occupants": 35,
+        "pathfinder_components_aggregated": 104
+      },
+      {
+        "floor_elevation_m": 26.31,
+        "initial_occupants": 13,
+        "pathfinder_components_aggregated": 119
+      },
+      {
+        "floor_elevation_m": 30.42,
+        "initial_occupants": 0,
+        "pathfinder_components_aggregated": 6
+      },
+      {
+        "floor_elevation_m": 33.66,
+        "initial_occupants": 0,
+        "pathfinder_components_aggregated": 2
+      }
+    ],
+    "initial_occupant_total": 299,
+    "observed_duration_s": 480,
+    "final_cumulative_exited": 299
+  },
+  "scenarios": [
+    {
+      "id": "scenario_1_reduced_occupancy",
+      "label": "Reduced occupancy",
+      "kind": "third_party_simulation",
+      "provenance": "TecI scenario export; simulated, not observed",
+      "room_series": {
+        "rows": 256,
+        "start": {
+          "time_s": 0.0,
+          "remaining": 299,
+          "exited": 0
+        },
+        "end": {
+          "time_s": 254.53,
+          "remaining": 0,
+          "exited": 299
+        },
+        "entity_columns": 713
+      },
+      "door_series": {
+        "rows": 256,
+        "start": {
+          "time_s": 0.0,
+          "remaining": 299,
+          "exited": 0
+        },
+        "end": {
+          "time_s": 254.525,
+          "remaining": 0,
+          "exited": 299
+        },
+        "entity_columns": 3903
+      }
+    },
+    {
+      "id": "scenario_2_full_occupancy_existing_stair",
+      "label": "Full occupancy, existing stair",
+      "kind": "third_party_simulation",
+      "provenance": "TecI scenario export; simulated, not observed",
+      "room_series": {
+        "rows": 2335,
+        "start": {
+          "time_s": 0.0,
+          "remaining": 3204,
+          "exited": 0
+        },
+        "end": {
+          "time_s": 2333.78,
+          "remaining": 0,
+          "exited": 3204
+        },
+        "entity_columns": 710
+      },
+      "door_series": {
+        "rows": 2335,
+        "start": {
+          "time_s": 0.0,
+          "remaining": 3204,
+          "exited": 0
+        },
+        "end": {
+          "time_s": 2333.775,
+          "remaining": 0,
+          "exited": 3204
+        },
+        "entity_columns": 3892
+      }
+    },
+    {
+      "id": "scenario_3a_one_added_stair_core",
+      "label": "Full occupancy, one added stair core",
+      "kind": "third_party_simulation",
+      "provenance": "TecI scenario export; simulated, not observed",
+      "room_series": {
+        "rows": 1580,
+        "start": {
+          "time_s": 0.0,
+          "remaining": 3204,
+          "exited": 0
+        },
+        "end": {
+          "time_s": 1578.03,
+          "remaining": 0,
+          "exited": 3204
+        },
+        "entity_columns": 734
+      },
+      "door_series": {
+        "rows": 1580,
+        "start": {
+          "time_s": 0.0,
+          "remaining": 3204,
+          "exited": 0
+        },
+        "end": {
+          "time_s": 1578.025,
+          "remaining": 0,
+          "exited": 3204
+        },
+        "entity_columns": 4001
+      }
+    },
+    {
+      "id": "scenario_3b_two_added_stair_cores",
+      "label": "Full occupancy, two added stair cores",
+      "kind": "third_party_simulation",
+      "provenance": "TecI scenario export; simulated, not observed",
+      "room_series": {
+        "rows": 999,
+        "start": {
+          "time_s": 0.0,
+          "remaining": 3204,
+          "exited": 0
+        },
+        "end": {
+          "time_s": 997.03,
+          "remaining": 0,
+          "exited": 3204
+        },
+        "entity_columns": 768
+      },
+      "door_series": {
+        "rows": 999,
+        "start": {
+          "time_s": 0.0,
+          "remaining": 3204,
+          "exited": 0
+        },
+        "end": {
+          "time_s": 997.025,
+          "remaining": 0,
+          "exited": 3204
+        },
+        "entity_columns": 4258
+      }
+    }
+  ],
+  "usage_note": "Do not pool these data with WayOut simulator training data or treat simulated scenarios as field observations."
+}

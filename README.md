@@ -81,6 +81,10 @@ CUDA acceleration and a language-model copilot are not implemented; simulations 
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for implementation details.
 
+## Imported drill and scenario data
+
+User-supplied drill observations and TecI room/door scenario exports are preserved under `backend/data/external/`. Run `python -m data.external.loader` from `backend/` to validate the source schemas and regenerate its summary. The drill is observed data; the four design comparisons are third-party simulations and are not mixed into WayOut's `backend/ml/dataset.csv` or used to claim real-world model calibration. See `backend/data/external/README.md` for the data mapping and limitations.
+
 To regenerate training data and train the prediction model:
 
 ```bash
