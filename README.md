@@ -23,6 +23,7 @@ https://github.com/user-attachments/assets/8ff9c2d4-713a-40da-8bd4-db191f280c46
 
 ## Requirements
 
+
 - Python 3.10 or newer
 - Node.js 18 or newer (includes npm)
 
