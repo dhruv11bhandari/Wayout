@@ -33,6 +33,7 @@ The simulator and demo run locally on the CPU. No GPU, cloud service, or API key
 
 From the repository root, run the launcher for your platform:
 
+
 ```bash
 # macOS / Linux
 ./start.sh
